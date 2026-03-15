@@ -25,6 +25,8 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
   const [name, setName] = useState('');
   const [privatePersona, setPrivatePersona] = useState('');
   const [publicPersona, setPublicPersona] = useState('');
+  const [metaGamingRules, setMetaGamingRules] = useState('');
+  const [userAppearance, setUserAppearance] = useState('');
   
   // Appearance & Behavior
   const [font, setFont] = useState('sans-serif');
@@ -80,7 +82,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
 
   const saveToHistory = () => {
     const currentState = {
-      name, privatePersona, publicPersona, font, fontUrl, fontColor, streamResponse,
+      name, privatePersona, publicPersona, metaGamingRules, userAppearance, font, fontUrl, fontColor, streamResponse,
       portraitScale, portraitAspectRatio,
       moodPortraits, moodDetectionPrompt, roleplayEnabled, roleplayInstruction,
       storageAccess,
@@ -116,6 +118,8 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
       setName(state.name);
       setPrivatePersona(state.privatePersona);
       setPublicPersona(state.publicPersona);
+      setMetaGamingRules(state.metaGamingRules || '');
+      setUserAppearance(state.userAppearance || '');
       setFont(state.font);
       setFontUrl(state.fontUrl || '');
       setFontColor(state.fontColor);
@@ -159,7 +163,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
       const timer = setTimeout(() => {
           if (isEditing) {
               const currentState = JSON.stringify({
-                  name, privatePersona, publicPersona, font, fontUrl, fontColor, streamResponse,
+                  name, privatePersona, publicPersona, metaGamingRules, userAppearance, font, fontUrl, fontColor, streamResponse,
                   portraitScale, portraitAspectRatio,
                   moodPortraits, moodDetectionPrompt, roleplayEnabled, roleplayInstruction,
                   storageAccess,
@@ -238,6 +242,8 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
     setName('');
     setPrivatePersona("");
     setPublicPersona("");
+    setMetaGamingRules("You are in a roleplay. Do not break character. Do not acknowledge that you are an AI. Do not meta-game.");
+    setUserAppearance("");
     setFont('sans-serif');
     setFontUrl('');
     setFontUrlError('');
@@ -267,6 +273,8 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
     setName(agent.name);
     setPrivatePersona(agent.privatePersona || agent.role || '');
     setPublicPersona(agent.publicPersona || '');
+    setMetaGamingRules(agent.metaGamingRules || "You are in a roleplay. Do not break character. Do not acknowledge that you are an AI. Do not meta-game.");
+    setUserAppearance(agent.userAppearance || '');
     setFont(agent.font || 'sans-serif');
     setFontUrl(agent.fontUrl || '');
     setFontUrlError('');
@@ -352,6 +360,8 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
       name,
       privatePersona,
       publicPersona,
+      metaGamingRules,
+      userAppearance,
       role: privatePersona, // Backwards compatibility
       font,
       fontUrl,
@@ -734,14 +744,34 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
               </div>
               
               {roleplayEnabled && (
-                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                      <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Roleplay Logic & Typography</label>
-                      <textarea 
-                          value={roleplayInstruction}
-                          onChange={e => setRoleplayInstruction(e.target.value)}
-                          className="w-full radix-input p-3 rounded-xl h-24 resize-none font-mono text-xs"
-                          placeholder="Instructions for roleplay style, formatting, and behavior..."
-                      />
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                      <div className="space-y-2">
+                          <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Roleplay Logic & Typography</label>
+                          <textarea 
+                              value={roleplayInstruction}
+                              onChange={e => setRoleplayInstruction(e.target.value)}
+                              className="w-full radix-input p-3 rounded-xl h-24 resize-none font-mono text-xs"
+                              placeholder="Instructions for roleplay style, formatting, and behavior..."
+                          />
+                      </div>
+                      <div className="space-y-2">
+                          <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Meta Gaming / God Mode Rules</label>
+                          <textarea 
+                              value={metaGamingRules}
+                              onChange={e => setMetaGamingRules(e.target.value)}
+                              className="w-full radix-input p-3 rounded-xl h-24 resize-none font-mono text-xs"
+                              placeholder="You are in a roleplay. Do not break character. Do not acknowledge that you are an AI. Do not meta-game."
+                          />
+                      </div>
+                      <div className="space-y-2">
+                          <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">User Appearance</label>
+                          <textarea 
+                              value={userAppearance}
+                              onChange={e => setUserAppearance(e.target.value)}
+                              className="w-full radix-input p-3 rounded-xl h-24 resize-none font-mono text-xs"
+                              placeholder="Describe how the user appears to the character..."
+                          />
+                      </div>
                   </div>
               )}
           </div>

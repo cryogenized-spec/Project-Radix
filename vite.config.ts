@@ -21,7 +21,6 @@ export default defineConfig(({mode}) => {
       }),
       VitePWA({
         registerType: 'autoUpdate',
-        injectRegister: false,
         filename: 'manifest.json',
         includeAssets: ['icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'],
         manifest: {
@@ -73,12 +72,13 @@ export default defineConfig(({mode}) => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,avif}'],
           navigateFallback: '/index.html',
-          maximumFileSizeToCacheInBytes: 5000000
+          maximumFileSizeToCacheInBytes: 5000000,
+          cleanupOutdatedCaches: true
         }
       })
     ],
     define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || ''),
     },
     resolve: {
       alias: {
@@ -87,6 +87,9 @@ export default defineConfig(({mode}) => {
     },
     worker: {
       format: 'es'
+    },
+    build: {
+      chunkSizeWarningLimit: 5000,
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

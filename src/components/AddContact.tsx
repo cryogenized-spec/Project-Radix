@@ -237,9 +237,9 @@ export default function AddContact() {
           {/* QR Code Display */}
           <div className="relative group bg-white p-4 rounded-xl flex items-center justify-center border border-[var(--border)] overflow-hidden h-48 sm:h-64 mx-auto w-full max-w-sm">
               {customQrUrl ? (
-                 <img src={customQrUrl} alt="Custom QR Code" className="w-full h-full object-contain" />
+                 <img src={customQrUrl || null} alt="Custom QR Code" className="w-full h-full object-contain" />
               ) : qrCodeUrl ? (
-                <img src={qrCodeUrl} alt="Your QR Code" className="w-full h-full object-contain" />
+                <img src={qrCodeUrl || null} alt="Your QR Code" className="w-full h-full object-contain" />
               ) : (
                 <div className="animate-pulse w-full h-full bg-gray-200 rounded-lg"></div>
               )}

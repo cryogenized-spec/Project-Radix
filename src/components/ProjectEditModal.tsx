@@ -409,7 +409,7 @@ export function ProjectEditModal({ type, initialData, onSave, onClose, allProfic
               <div className="flex items-center space-x-4">
                 {(type === 'bench' ? formData.image : formData.thumbnail) && (
                   <img 
-                    src={type === 'bench' ? formData.image : formData.thumbnail} 
+                    src={(type === 'bench' ? formData.image : formData.thumbnail) || null} 
                     alt="Preview" 
                     className="w-16 h-16 object-cover rounded-lg border border-[var(--border)]"
                   />

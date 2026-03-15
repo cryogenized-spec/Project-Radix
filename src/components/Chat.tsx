@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RadixIcon } from './RadixIcon';
 import { Send, Mic, Image as ImageIcon, Paperclip, Ghost, Bot, Square, Play, Maximize2, Minimize2, Activity, Video, FileText, Music, MapPin, Users, BarChart2, X, MoreVertical, Trash2, Reply, Share2, Languages, PenTool, CheckCircle, Plus, Hash, MessageSquare, Shield, Globe, Lock, ChevronLeft, ChevronRight, ScanLine, QrCode, Copy, ExternalLink, Headphones, UserPlus, Check, Loader2, Calendar, Wand2, Monitor, RotateCcw } from 'lucide-react';
 import { addMessage, getMessages, getSetting, setSetting, deleteMessage, addThread, getThreads, addGroup, getGroups, getContacts, addContact, getAgents, getStorageStats, evictOldMedia } from '../lib/db';
@@ -23,6 +23,19 @@ import { ChannelList, ChannelView, Channel } from './Channels';
 import { useAvifEncoder } from '../hooks/useAvifEncoder';
 import { transcodeVideoToAV1 } from '../lib/transcode';
 import ImageGenOverlay from './ImageGenOverlay';
+
+const MemoizedMessageList = React.memo(
+  ({ renderMessages, deps }: { renderMessages: () => React.ReactNode, deps: any[] }) => {
+    return <>{renderMessages()}</>;
+  },
+  (prevProps, nextProps) => {
+    if (prevProps.deps.length !== nextProps.deps.length) return false;
+    for (let i = 0; i < prevProps.deps.length; i++) {
+      if (prevProps.deps[i] !== nextProps.deps[i]) return false;
+    }
+    return true;
+  }
+);
 
 export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, onBack, onEditAgent }: { profile: any, isAiExclusive?: boolean, initialAgent?: any, onBack?: () => void, onEditAgent?: (id: string) => void }) {
   // Navigation State
@@ -2220,7 +2233,7 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
                     const width = 40 * scale;
                     
                     return displayAvatar ? (
-                        <img src={displayAvatar} alt="Avatar" className={`object-cover shadow-2xl border border-[var(--border)] ${aspectRatio === 'circle' ? 'rounded-full aspect-square' : aspectRatio === '4:5' ? 'rounded-xl aspect-[4/5]' : 'rounded-xl aspect-square'}`} style={{ width: `${width}px` }} />
+                        <img src={displayAvatar || null} alt="Avatar" className={`object-cover shadow-2xl border border-[var(--border)] ${aspectRatio === 'circle' ? 'rounded-full aspect-square' : aspectRatio === '4:5' ? 'rounded-xl aspect-[4/5]' : 'rounded-xl aspect-square'}`} style={{ width: `${width}px` }} />
                     ) : (
                         <div className={`flex items-center justify-center text-[var(--accent)] bg-[var(--panel-bg)]/80 backdrop-blur shadow-2xl border border-[var(--border)] ${aspectRatio === 'circle' ? 'rounded-full aspect-square' : aspectRatio === '4:5' ? 'rounded-xl aspect-[4/5]' : 'rounded-xl aspect-square'}`} style={{ width: `${width}px` }}>
                           <Bot size={20 * scale} />
@@ -2270,7 +2283,7 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
                 
                 <div className="flex items-center space-x-2 sm:space-x-3">
                   {activeContext?.avatar ? (
-                    <img src={activeContext.avatar} alt="Avatar" className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover" />
+                    <img src={activeContext.avatar || null} alt="Avatar" className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover" />
                   ) : (
                     <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-[var(--accent)] bg-[var(--accent)]/10`}>
                       <MessageSquare size={20} />
@@ -2360,7 +2373,9 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
               }
             }}
           >
-            {messages.map((msg) => {
+            <MemoizedMessageList 
+              deps={[messages, selectedMessageIds, isSelectionMode, contextMenuMsgId, textSize, showTranslateMenu, showAiSubmenu, aiActionPrivacy, aiSettings, activeContext, agents, contacts, isAiExclusive, menuPosition, playingAudioId, translations, p2pStatus, longPressDuration, chatScale, currentMood]}
+              renderMessages={() => messages.map((msg) => {
               const isMe = msg.sender === 'me';
               const isGhost = msg.isGhost;
               // Use global chat font for user messages, otherwise use message-specific font or inherit
@@ -2610,7 +2625,7 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
                     {msg.type === 'media' && msg.mediaType === 'image' && (
                       <div className="space-y-2 select-none">
                         <img 
-                          src={msg.mediaUrl} 
+                          src={msg.mediaUrl || null} 
                           alt="Uploaded media" 
                           className="max-w-full h-auto rounded-xl border border-[var(--border)]"
                           style={{ maxHeight: '300px', objectFit: 'contain' }}
@@ -2944,7 +2959,7 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
               )}
                 </div>
               );
-            })}
+            })} />
             {isProcessing && (() => {
               let activeAgent: any = null;
               if (activeContext?.isAgent) {
@@ -3612,7 +3627,7 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
                             // Standard Single Reply
                             <div className="flex items-center space-x-3">
                                 {replyingTo.type === 'media' && replyingTo.mediaType === 'image' && (
-                                    <img src={replyingTo.mediaUrl} alt="Preview" className="w-10 h-10 rounded object-cover" />
+                                    <img src={replyingTo.mediaUrl || null} alt="Preview" className="w-10 h-10 rounded object-cover" />
                                 )}
                                 <div>
                                     <div className="text-xs font-bold text-[var(--accent)] flex items-center space-x-1">
@@ -3745,7 +3760,11 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
                       setInput(val);
                       
                       // Smart Chip Logic
-                      const lastWord = val.split(/\s+/).pop();
+                      const lastSpaceIndex = val.lastIndexOf(' ');
+                      const lastNewlineIndex = val.lastIndexOf('\n');
+                      const lastSeparatorIndex = Math.max(lastSpaceIndex, lastNewlineIndex);
+                      const lastWord = val.substring(lastSeparatorIndex + 1);
+                      
                       if (lastWord && lastWord.startsWith('@')) {
                           const query = lastWord.substring(1).toLowerCase();
                           // Check if it matches a known trigger prefix or is just '@'
@@ -3783,14 +3802,19 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
                     }}
                     placeholder={isRecording ? (recordingMode === 'vtt' ? "Recording VTT..." : "Recording Voice Note...") : "Message"}
                     disabled={isRecording}
-                    className={`w-full radix-input p-3 rounded-2xl resize-none text-sm ${isExpanded ? 'h-full' : 'min-h-[44px] max-h-[320px] overflow-y-auto'} ${isRecording ? 'opacity-50' : ''} ${!isExpanded ? 'pr-10' : ''}`}
+                    className={`w-full radix-input p-3 rounded-2xl resize-none text-sm ${isExpanded ? 'h-full' : 'min-h-[44px] max-h-[120px] sm:max-h-[320px] overflow-y-auto'} ${isRecording ? 'opacity-50' : ''} ${!isExpanded ? 'pr-10' : ''}`}
                     rows={isExpanded ? undefined : 1}
                     style={!isExpanded ? { height: 'auto', minHeight: '44px', fontFamily: 'var(--font-chat)' } : { fontFamily: 'var(--font-chat)' }}
                     onInput={(e) => {
                       if (!isExpanded) {
                         const target = e.target as HTMLTextAreaElement;
-                        target.style.height = 'auto';
-                        target.style.height = `${Math.min(target.scrollHeight, 320)}px`;
+                        const isShrinking = target.value.length < (target.dataset.prevLength ? parseInt(target.dataset.prevLength) : 0);
+                        target.dataset.prevLength = target.value.length.toString();
+                        if (isShrinking) {
+                          target.style.height = 'auto';
+                        }
+                        const maxHeight = window.innerWidth < 640 ? 120 : 320;
+                        target.style.height = `${Math.min(target.scrollHeight, maxHeight)}px`;
                       }
                     }}
                   />
@@ -3994,7 +4018,7 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 rounded-full bg-[var(--bg-color)] flex items-center justify-center border border-[var(--border)]">
                       {contact.avatar ? (
-                        <img src={contact.avatar} alt={contact.name} className="w-full h-full rounded-full object-cover" />
+                        <img src={contact.avatar || null} alt={contact.name} className="w-full h-full rounded-full object-cover" />
                       ) : (
                         <span className="font-bold text-[var(--accent)]">{contact.name[0]}</span>
                       )}
@@ -4084,7 +4108,7 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase text-[var(--text-muted)]">{scanResult.type}</span>
                 {scanResult.image && (
-                   <img src={scanResult.image} alt="Scan" className="w-8 h-8 object-cover rounded border border-[var(--border)]" />
+                   <img src={scanResult.image || null} alt="Scan" className="w-8 h-8 object-cover rounded border border-[var(--border)]" />
                 )}
               </div>
               <p className="text-sm break-all font-mono">{scanResult.text}</p>

@@ -105,105 +105,33 @@ interface WorkshopProfile {
 }
 
 const DEFAULT_PROFILE: WorkshopProfile = {
-  alias: 'Builder',
-  tagline: 'Building the future of local-first software.',
-  avatar: 'https://picsum.photos/seed/avatar/512/512',
+  alias: '',
+  tagline: '',
+  avatar: '',
   avatarShape: 'circle',
-  banner: 'https://picsum.photos/seed/banner/1500/500',
+  banner: '',
   identity: {
     type: 'Human',
     verified: false,
   },
   metadata: {
-    region: 'Global',
-    primaryDomain: 'Software',
-    yearsActive: '5+'
+    region: '',
+    primaryDomain: '',
+    yearsActive: ''
   },
-  about: 'I am a builder focused on decentralized systems and high-performance interfaces. I enjoy working across the stack, from low-level systems to user-facing applications.',
-  proficiencies: [
-    { id: '1', field: 'Software Engineering', level: 'Expert', details: 'React, Rust, Node.js', connections: ['3'] },
-    { id: '2', field: '3D Printing', level: 'Advanced', details: 'FDM, Resin, Fusion 360', connections: ['4'] },
-    { id: '3', field: 'LLM / ML', level: 'Intermediate', details: 'Fine-tuning, RAG, PyTorch', connections: ['1'] },
-    { id: '4', field: 'Micro Electronics', level: 'Novice', details: 'Arduino, Basic Soldering', connections: ['2'] }
-  ],
-  inventory: [
-    { id: '1', name: 'Prusa i3 MK3S+', category: 'Fabrication', specs: '0.4mm Nozzle, PETG/PLA' },
-    { id: '2', name: 'Rigol DS1054Z', category: 'Testing', specs: '50MHz, 4-Channel Oscilloscope' },
-    { id: '3', name: 'Local Compute Node', category: 'Compute', specs: 'RTX 3090, 64GB RAM' }
-  ],
-  onTheBench: [
-    {
-      id: '1',
-      title: 'Radix Core Engine',
-      description: 'Rewriting the core synchronization engine in Rust for better performance and memory safety.',
-      status: 'Prototyping',
-      lastUpdated: Date.now(),
-      attributes: ['Versioned Build', 'Open Collaboration'],
-      attributeDescriptions: {
-        'Versioned Build': 'Currently on v0.4.2-alpha',
-        'Open Collaboration': 'Looking for reviewers on the networking layer.'
-      }
-    }
-  ],
-  builds: [
-    {
-      id: '1',
-      title: 'HyperGrid',
-      description: 'A distributed key-value store built for edge networks.',
-      tags: ['Rust', 'Networking', 'Distributed Systems'],
-      thumbnail: 'https://picsum.photos/seed/hypergrid/600/400'
-    },
-    {
-      id: '2',
-      title: 'Ergo-Mech Keyboard',
-      description: 'Custom split keyboard with 3D printed case and hand-wired matrix.',
-      tags: ['Hardware', '3D Printing', 'C++'],
-      thumbnail: 'https://picsum.photos/seed/keyboard/600/400'
-    }
-  ],
+  about: '',
+  proficiencies: [],
+  inventory: [],
+  onTheBench: [],
+  builds: [],
   mediaGallery: [],
-  activeIn: [
-    {
-      id: '1',
-      platform: 'GitHub',
-      username: 'builder-core',
-      previewText: '1.2k contributions this year',
-      url: 'https://github.com'
-    },
-    {
-      id: '2',
-      platform: 'Printables',
-      username: 'maker_space',
-      previewText: '15 models published',
-      url: 'https://printables.com'
-    }
-  ],
+  activeIn: [],
   domainsAndTools: {
-    domains: ['Software', 'Hardware', 'Fabrication'],
-    tools: ['Rust', 'TypeScript', 'React', 'Fusion 360', 'KiCad', 'Linux']
+    domains: [],
+    tools: []
   },
-  contributions: [
-    {
-      id: '1',
-      title: 'Participated in Sprint',
-      description: 'Helped resolve 15 issues during the Winter Open Source Sprint.',
-      date: Date.now() - 86400000 * 5
-    },
-    {
-      id: '2',
-      title: 'Reviewed Schematics',
-      description: 'Provided feedback on the v2 board design for the community sensor project.',
-      date: Date.now() - 86400000 * 14
-    }
-  ],
-  archivedProjects: [
-    {
-      id: '1',
-      title: 'Legacy Dashboard',
-      description: 'Old version of the analytics dashboard, deprecated in 2023.',
-      tags: ['React', 'Node.js'],
-    }
-  ]
+  contributions: [],
+  archivedProjects: []
 };
 
 // --- Components ---
@@ -450,7 +378,7 @@ export default function Profile() {
           {/* Banner */}
           <div className="relative w-full aspect-[3/1] bg-[var(--panel-bg)]">
             <img 
-              src={displayProfile.banner} 
+              src={displayProfile.banner || null} 
               alt="Banner" 
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
@@ -494,7 +422,7 @@ export default function Profile() {
                 ${displayProfile.avatarShape === 'circle' ? 'w-32 h-32 sm:w-40 sm:h-40 rounded-full' : 'w-32 h-40 sm:w-40 sm:h-48 rounded-2xl'}
               `}>
                 <img 
-                  src={displayProfile.avatar} 
+                  src={displayProfile.avatar || null} 
                   alt={displayProfile.alias} 
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
