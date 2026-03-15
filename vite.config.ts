@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
@@ -17,6 +18,63 @@ export default defineConfig(({mode}) => {
           global: true,
           process: true,
         },
+      }),
+      VitePWA({
+        registerType: 'autoUpdate',
+        injectRegister: false,
+        filename: 'manifest.json',
+        includeAssets: ['icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'],
+        manifest: {
+          name: 'RADIX',
+          short_name: 'RADIX',
+          description: 'RADIX is a secure, AI-powered communication platform designed for privacy and efficiency. Chat with friends, create groups, and leverage advanced AI tools directly in your conversations.',
+          theme_color: '#ff5500',
+          background_color: '#000000',
+          display: 'standalone',
+          start_url: '/',
+          icons: [
+            {
+              src: '/icons/icon-192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any maskable'
+            },
+            {
+              src: '/icons/icon-512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any maskable'
+            }
+          ],
+          screenshots: [
+            {
+              src: '/screenshots/mobile-1.avif',
+              sizes: '1080x1920',
+              type: 'image/avif',
+              form_factor: 'narrow',
+              label: 'Chat Interface'
+            },
+            {
+              src: '/screenshots/mobile-2.avif',
+              sizes: '1080x1920',
+              type: 'image/avif',
+              form_factor: 'narrow',
+              label: 'AI Integration'
+            },
+            {
+              src: '/screenshots/desktop-1.avif',
+              sizes: '1920x1080',
+              type: 'image/avif',
+              form_factor: 'wide',
+              label: 'Desktop Dashboard'
+            }
+          ]
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,avif}'],
+          navigateFallback: '/index.html',
+          maximumFileSizeToCacheInBytes: 5000000
+        }
       })
     ],
     define: {
