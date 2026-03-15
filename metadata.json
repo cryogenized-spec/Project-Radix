@@ -1,0 +1,9 @@
+{
+  "name": "Project RADIX",
+  "description": "A high-performance, PWA-based chat application with unconstrained AI integration and deep UI customization.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera",
+    "geolocation"
+  ]
+}

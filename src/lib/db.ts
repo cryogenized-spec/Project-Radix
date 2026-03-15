@@ -1,0 +1,271 @@
+import Dexie, { Table } from 'dexie';
+import { encryptData, decryptData, isCryptoInitialized } from './crypto';
+
+// Storage Quota
+const MAX_STORAGE_BYTES = 500 * 1024 * 1024; // 500MB
+const PRUNE_THRESHOLD = 0.9 * MAX_STORAGE_BYTES; // 450MB
+
+export class RadixDB extends Dexie {
+  messages!: Table<any>;
+  settings!: Table<any>;
+  threads!: Table<any>;
+  groups!: Table<any>;
+  contacts!: Table<any>;
+  agents!: Table<any>;
+  media!: Table<any>; // Separate table for media blobs to manage LRU easily
+  file_map!: Table<any>;
+  directory_handles!: Table<any>;
+  icons!: Table<any>;
+  channels!: Table<any>;
+  folders!: Table<any>;
+  feeds!: Table<any>;
+  channeler_prompts!: Table<any>;
+
+  constructor() {
+    super('radix_db');
+    this.version(8).stores({
+      messages: 'id, timestamp, threadId, type, isAiChat', // Indexed fields
+      settings: 'key',
+      threads: 'id, lastMessageTime',
+      groups: 'id, lastMessageTime',
+      contacts: 'id, name',
+      agents: 'id, name',
+      media: 'id, timestamp, size, type', // For LRU pruning based on timestamp
+      file_map: 'filePath, fileName, extension, lastModified',
+      directory_handles: 'id',
+      icons: 'name',
+      channels: 'id, name, folderId',
+      folders: 'id, name',
+      feeds: 'id, url, type, channelId',
+      channeler_prompts: 'id, name'
+    });
+
+    // Encryption Middleware
+    this.use({
+      stack: 'dbcore',
+      name: 'encryption',
+      create(downlevelDatabase) {
+        return {
+          ...downlevelDatabase,
+          table(tableName) {
+            const downlevelTable = downlevelDatabase.table(tableName);
+            return {
+              ...downlevelTable,
+              async get(req) {
+                const result = await downlevelTable.get(req);
+                if (result && result.encrypted && isCryptoInitialized()) {
+                  try {
+                    const decrypted = await decryptData(result.ciphertext, result.nonce);
+                    return { ...result, ...decrypted, encrypted: false };
+                  } catch (e) {
+                    console.error('Decryption failed', e);
+                    return result; // Return encrypted if key is wrong/missing
+                  }
+                }
+                return result;
+              },
+              async mutate(req) {
+                if (isCryptoInitialized() && (tableName === 'messages' || tableName === 'media')) {
+                  // Encrypt sensitive data
+                  const encryptEntry = async (entry: any) => {
+                    if (entry.encrypted) return entry; // Already encrypted
+                    const { id, timestamp, ...rest } = entry;
+                    // Encrypt everything except ID and timestamp (needed for indexing/LRU)
+                    const { ciphertext, nonce } = await encryptData(rest);
+                    return {
+                      id,
+                      timestamp,
+                      encrypted: true,
+                      ciphertext,
+                      nonce
+                    };
+                  };
+
+                  if (req.type === 'put') {
+                    const values = await Promise.all(req.values.map(encryptEntry));
+                    return downlevelTable.mutate({ ...req, values });
+                  } else if (req.type === 'add') {
+                    const values = await Promise.all(req.values.map(encryptEntry));
+                    return downlevelTable.mutate({ ...req, values });
+                  }
+                }
+                return downlevelTable.mutate(req);
+              }
+            };
+          }
+        };
+      }
+    });
+  }
+}
+
+export const db = new RadixDB();
+
+export async function cacheIcon(name: string, data: any) {
+  // Clear existing icons first to ensure only 1 is cached for this slot
+  // Note: If we expand to multiple slots later, we'll need a slot ID or similar.
+  // For now, the requirement is "only 1x is cached at all times".
+  await db.icons.clear();
+  await db.icons.put({ name, data, timestamp: Date.now() });
+}
+
+export async function getCachedIcon(name: string) {
+  return await db.icons.get(name);
+}
+
+export async function getAnyCachedIcon() {
+  return await db.icons.orderBy('timestamp').last();
+}
+
+// Storage Management
+export async function initStorage() {
+  if (navigator.storage && navigator.storage.persist) {
+    const isPersisted = await navigator.storage.persist();
+    console.log(`Storage persisted: ${isPersisted}`);
+  }
+  
+  checkQuota();
+}
+
+export async function checkQuota() {
+  if (navigator.storage && navigator.storage.estimate) {
+    const { usage, quota } = await navigator.storage.estimate();
+    console.log(`Storage usage: ${usage} / ${quota}`);
+    
+    if (usage && usage > PRUNE_THRESHOLD) {
+      console.warn('Storage quota exceeded threshold, pruning old media...');
+      await pruneOldMedia();
+    }
+    
+    return { usage, quota, isFull: (usage || 0) > MAX_STORAGE_BYTES };
+  }
+  return { usage: 0, quota: 0, isFull: false };
+}
+
+async function pruneOldMedia() {
+  // Delete oldest media until usage is below 80% of MAX_STORAGE_BYTES
+  const targetUsage = 0.8 * MAX_STORAGE_BYTES;
+  let currentUsage = (await navigator.storage.estimate()).usage || 0;
+  
+  if (currentUsage <= targetUsage) return;
+
+  // Get all media sorted by timestamp (oldest first)
+  const allMedia = await db.media.orderBy('timestamp').toArray();
+  
+  for (const media of allMedia) {
+    if (currentUsage <= targetUsage) break;
+    
+    await db.media.delete(media.id);
+    // Also remove reference from message if needed, but keeping metadata is required.
+    // The requirement says: "prune the local Blobs of the oldest media files while retaining the text-based message metadata."
+    // So we just delete the blob from 'media' table. The message table still has the metadata.
+    // But we need to update the message to indicate media is pruned?
+    // Or just let it fail to load? Better to mark it.
+    
+    // For now, just delete the blob.
+    currentUsage -= (media.size || 0);
+  }
+}
+
+// Wrapper functions for backward compatibility with existing code
+export const getSetting = async (key: string) => (await db.settings.get(key))?.value;
+export const setSetting = async (key: string, value: any) => db.settings.put({ key, value });
+
+export const addMessage = async (msg: any) => db.messages.put(msg);
+export const getMessages = async () => db.messages.orderBy('timestamp').toArray();
+export const deleteMessage = async (id: string) => db.messages.delete(id);
+
+export const addThread = async (t: any) => db.threads.put(t);
+export const getThreads = async () => db.threads.toArray();
+
+export const addGroup = async (g: any) => db.groups.put(g);
+export const getGroups = async () => db.groups.toArray();
+
+export const addContact = async (c: any) => db.contacts.put(c);
+export const getContacts = async () => db.contacts.toArray();
+
+export const addAgent = async (a: any) => db.agents.put(a);
+export const getAgents = async () => db.agents.toArray();
+export const deleteAgent = async (id: string) => db.agents.delete(id);
+
+// Media Helpers
+export const saveMedia = async (blob: Blob, type: 'image' | 'video' | 'audio') => {
+    const id = crypto.randomUUID();
+    await db.media.put({
+        id,
+        timestamp: Date.now(),
+        type,
+        size: blob.size,
+        data: blob // This will be encrypted by middleware
+    });
+    return id;
+};
+
+export const getMedia = async (id: string) => {
+    const record = await db.media.get(id);
+    return record?.data;
+};
+
+// File System Helpers
+export const getFileIndex = async () => db.file_map.toArray();
+export const getFileByPath = async (path: string) => db.file_map.get(path);
+export const saveFileIndex = async (files: any[]) => db.file_map.bulkPut(files);
+export const clearFileIndex = async () => db.file_map.clear();
+
+export const saveDirectoryHandle = async (handle: FileSystemDirectoryHandle) => db.directory_handles.put({ id: 'root', handle });
+export const getDirectoryHandle = async () => (await db.directory_handles.get('root'))?.handle;
+
+// Channels Module Helpers
+export const addFolder = async (folder: any) => db.folders.put(folder);
+export const getFolders = async () => db.folders.toArray();
+export const deleteFolder = async (id: string) => db.folders.delete(id);
+
+export const addChannel = async (channel: any) => db.channels.put(channel);
+export const getChannels = async () => db.channels.toArray();
+export const deleteChannel = async (id: string) => db.channels.delete(id);
+
+export const addFeed = async (feed: any) => db.feeds.put(feed);
+export const getFeeds = async () => db.feeds.toArray();
+export const deleteFeed = async (id: string) => db.feeds.delete(id);
+
+export const addChannelerPrompt = async (prompt: any) => db.channeler_prompts.put(prompt);
+export const getChannelerPrompts = async () => db.channeler_prompts.toArray();
+export const deleteChannelerPrompt = async (id: string) => db.channeler_prompts.delete(id);
+
+export const getStorageStats = async () => {
+  if (navigator.storage && navigator.storage.estimate) {
+    const estimate = await navigator.storage.estimate();
+    return {
+      usage: estimate.usage || 0,
+      quota: estimate.quota || 0
+    };
+  }
+  return { usage: 0, quota: 0 };
+};
+
+export const evictOldMedia = async (totalCapacityBytes: number, force: boolean = false) => {
+  const RESERVED_BYTES = 25 * 1024 * 1024;
+  const BUFFER_BYTES = totalCapacityBytes * 0.15;
+  const CEILING = totalCapacityBytes - RESERVED_BYTES - BUFFER_BYTES;
+
+  const stats = await getStorageStats();
+  let currentUsage = stats.usage;
+
+  if (force || currentUsage > (totalCapacityBytes * 0.85)) {
+    // We are in the eviction zone
+    const mediaItems = await db.media.orderBy('timestamp').toArray();
+    
+    for (const item of mediaItems) {
+      if (!force && currentUsage <= CEILING) break;
+      if (force && currentUsage <= 0) break; // Evict all if forced, or maybe down to 0
+      
+      // Delete the oldest item
+      await db.media.delete(item.id);
+      
+      // Estimate size reduction
+      const size = item.size || (1024 * 1024); // fallback 1MB
+      currentUsage -= size;
+    }
+  }
+};
+

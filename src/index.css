@@ -1,0 +1,435 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&family=Playfair+Display:wght@400;500;700&family=Geist:wght@400;500;700&family=Geist+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-main, "JetBrains Mono", monospace);
+  --font-mono: var(--font-main, "JetBrains Mono", monospace);
+}
+
+:root {
+  --bg-color: #050505;
+  --panel-bg: #111111;
+  --text-main: #e0e0e0;
+  --text-muted: #666666;
+  --accent: #ff5500;
+  --border: #222222;
+  --bubble-me: #1a1a1a;
+  --bubble-other: #0a0a0a;
+  --font-main: "JetBrains Mono", monospace;
+  --font-chat: "JetBrains Mono", monospace;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  font-family: var(--font-main);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100dvh;
+  width: 100%;
+  position: fixed; /* Prevent scrolling on body */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: pan-x pan-y;
+}
+
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: auto;
+  user-select: auto;
+}
+
+#root {
+  height: 100dvh;
+  width: 100%;
+}
+
+/* Custom Scrollbar for industrial feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-color);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 0px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+.radix-panel {
+  background-color: var(--panel-bg);
+  border: 1px solid var(--border);
+}
+
+.radix-input {
+  background-color: var(--bg-color);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  min-width: 0;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.radix-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.radix-button {
+  background-color: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  transition: all 0.2s;
+}
+.radix-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.radix-button.active {
+  background-color: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+}
+
+.radix-bubble-me {
+  background-color: var(--bubble-me);
+  border: 1px solid var(--border);
+  border-right: 2px solid var(--accent);
+}
+
+.radix-bubble-other {
+  background-color: var(--bubble-other);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--text-muted);
+}
+
+.radix-bubble-ghost {
+  background-color: rgba(255, 85, 0, 0.05);
+  border: 1px dashed var(--accent);
+  color: var(--accent);
+}
+
+@keyframes anim-turning-cw {
+  from { transform: rotateZ(0deg); }
+  to { transform: rotateZ(360deg); }
+}
+@keyframes anim-turning-ccw {
+  from { transform: rotateZ(0deg); }
+  to { transform: rotateZ(-360deg); }
+}
+@keyframes anim-rotating-cw {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(360deg); }
+}
+@keyframes anim-rotating-ccw {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(-360deg); }
+}
+@keyframes anim-pulsing {
+  0%, 100% { transform: scale(0.9); }
+  50% { transform: scale(1.1); }
+}
+@keyframes anim-breathing {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+@keyframes anim-pendulum-cw {
+  0%, 100% { transform: rotateZ(-15deg); }
+  50% { transform: rotateZ(15deg); }
+}
+@keyframes anim-pendulum-ccw {
+  0%, 100% { transform: rotateZ(15deg); }
+  50% { transform: rotateZ(-15deg); }
+}
+@keyframes anim-levitating {
+  0%, 100% { transform: translateY(5px); }
+  50% { transform: translateY(-5px); }
+}
+@keyframes anim-flipping-cw {
+  from { transform: rotateX(0deg); }
+  to { transform: rotateX(360deg); }
+}
+@keyframes anim-flipping-ccw {
+  from { transform: rotateX(0deg); }
+  to { transform: rotateX(-360deg); }
+}
+
+.anim-turning-cw { animation: anim-turning-cw 2s linear infinite; }
+.anim-turning-ccw { animation: anim-turning-ccw 2s linear infinite; }
+.anim-rotating-cw { animation: anim-rotating-cw 2s linear infinite; }
+.anim-rotating-ccw { animation: anim-rotating-ccw 2s linear infinite; }
+.anim-pulsing { animation: anim-pulsing 2s ease-in-out infinite; }
+.anim-breathing { animation: anim-breathing 2s ease-in-out infinite; }
+.anim-pendulum-cw { animation: anim-pendulum-cw 2s ease-in-out infinite; }
+.anim-pendulum-ccw { animation: anim-pendulum-ccw 2s ease-in-out infinite; }
+.anim-levitating { animation: anim-levitating 2s ease-in-out infinite; }
+.anim-flipping-cw { animation: anim-flipping-cw 2s linear infinite; }
+.anim-flipping-ccw { animation: anim-flipping-ccw 2s linear infinite; }
+
+/* -------------------------------------------------------------------------- */
+/* CSS Text Effects Module */
+/* -------------------------------------------------------------------------- */
+
+/* 1. Pulsing Heartbeat */
+.effect-pulsing-heartbeat {
+  animation: pulsing-heartbeat 1.5s infinite ease-in-out;
+}
+@keyframes pulsing-heartbeat {
+  0%, 100% { text-shadow: 0 0 5px currentColor; transform: scale(1); }
+  50% { text-shadow: 0 0 20px currentColor, 0 0 30px currentColor; transform: scale(1.02); }
+}
+
+/* 2. Variable Breathing */
+.effect-variable-breathing {
+  animation: variable-breathing 3s infinite alternate ease-in-out;
+}
+@keyframes variable-breathing {
+  0% { font-variation-settings: 'wght' 300; font-weight: 300; }
+  100% { font-variation-settings: 'wght' 800; font-weight: 800; }
+}
+
+/* 3. Backlit Reveal */
+.effect-backlit-reveal {
+  animation: backlit-reveal linear both;
+  animation-timeline: view();
+  animation-range: entry 25% cover 50%;
+}
+@keyframes backlit-reveal {
+  from { opacity: 0; text-shadow: 0 0 0 transparent; filter: brightness(0); }
+  to { opacity: 1; text-shadow: 0 0 20px currentColor; filter: brightness(1.5); }
+}
+
+/* 4. Neon Glitch */
+.effect-neon-glitch {
+  position: relative;
+  animation: neon-glitch 2s infinite;
+}
+@keyframes neon-glitch {
+  0%, 100% { text-shadow: 2px 0 cyan, -2px 0 magenta; clip-path: inset(0 0 0 0); }
+  20% { text-shadow: -2px 0 cyan, 2px 0 magenta; clip-path: inset(20% 0 80% 0); }
+  21% { text-shadow: 2px 0 cyan, -2px 0 magenta; clip-path: inset(0 0 0 0); }
+  40% { text-shadow: 2px 0 cyan, -2px 0 magenta; clip-path: inset(80% 0 10% 0); }
+  41% { text-shadow: -2px 0 cyan, 2px 0 magenta; clip-path: inset(0 0 0 0); }
+}
+
+/* 5. Frosted Glass (Textured) */
+.effect-frosted-glass {
+  color: transparent;
+  text-shadow: 0 0 10px currentColor, 0 0 20px currentColor;
+  opacity: 0.8;
+}
+
+/* 6. Chromatic Aberration */
+.effect-chromatic-aberration {
+  text-shadow: 2px 0 0 red, -2px 0 0 blue, 0 2px 0 green;
+}
+
+/* 7. Iridescent Shimmer */
+.effect-iridescent-shimmer {
+  background: linear-gradient(90deg, #ff8a00, #e52e71, #9b2df2, #00d4ff, #ff8a00);
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: iridescent-shimmer 3s linear infinite;
+}
+@keyframes iridescent-shimmer {
+  to { background-position: 200% center; }
+}
+
+/* 8. Typewriter Step */
+.effect-typewriter-step {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid currentColor;
+  animation: typing 4s steps(40, end) infinite, blink-caret .75s step-end infinite;
+}
+@keyframes typing {
+  0% { width: 0 }
+  50%, 100% { width: 100% }
+}
+@keyframes blink-caret {
+  from, to { border-color: transparent }
+  50% { border-color: currentColor; }
+}
+
+/* 9. Engraved Letterpress */
+.effect-engraved-letterpress {
+  color: transparent;
+  background-color: currentColor;
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: 0px 1px 1px rgba(255,255,255,0.3), 0px -1px 1px rgba(0,0,0,0.8);
+}
+
+/* 10. Liquid Wave */
+.effect-liquid-wave {
+  display: inline-block;
+  animation: liquid-wave 1.5s ease-in-out infinite;
+}
+@keyframes liquid-wave {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+/* 11. Gold Foil Reflection */
+.effect-gold-foil {
+  background: linear-gradient(to bottom right, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* 12. Hollow Stroke Fill */
+.effect-hollow-stroke {
+  color: transparent;
+  -webkit-text-stroke: 1px currentColor;
+  transition: color 0.3s ease;
+}
+.effect-hollow-stroke:hover {
+  color: currentColor;
+}
+
+/* 13. Kinetic Marquee */
+.effect-kinetic-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: kinetic-marquee 5s linear infinite;
+}
+@keyframes kinetic-marquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+/* 14. Soft Bloom */
+.effect-soft-bloom {
+  animation: soft-bloom 3s infinite alternate ease-in-out;
+}
+@keyframes soft-bloom {
+  0% { text-shadow: 0 0 10px currentColor; opacity: 0.8; }
+  100% { text-shadow: 0 0 30px currentColor, 0 0 40px currentColor; opacity: 1; }
+}
+
+/* 15. Pearlescent Shift */
+.effect-pearlescent-shift {
+  background: linear-gradient(90deg, #ffb6ff, #b3e5fc, #f0f4c3, #ffccbc, #ffb6ff);
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: pearlescent-shift 4s linear infinite;
+}
+@keyframes pearlescent-shift {
+  to { background-position: 200% center; }
+}
+
+/* 16. Whispering Float */
+.effect-whispering-float {
+  animation: whispering-float 3s infinite ease-in-out;
+}
+@keyframes whispering-float {
+  0%, 100% { transform: translateY(0); opacity: 0.7; }
+  50% { transform: translateY(-5px); opacity: 1; }
+}
+
+/* 17. Silk Ribbon */
+.effect-silk-ribbon {
+  background: linear-gradient(45deg, currentColor 25%, rgba(255,255,255,0.8) 50%, currentColor 75%);
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: silk-ribbon 3s linear infinite;
+}
+@keyframes silk-ribbon {
+  to { background-position: 200% center; }
+}
+
+/* 18. Watercolor Bleed */
+.effect-watercolor-bleed {
+  position: relative;
+  color: currentColor;
+}
+.effect-watercolor-bleed::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: currentColor;
+  filter: blur(4px);
+  opacity: 0.6;
+  z-index: -1;
+}
+
+/* 19. Frosted Lace */
+.effect-frosted-lace {
+  color: transparent;
+  text-shadow: 0px 0px 1px currentColor, 1px 1px 2px rgba(0,0,0,0.1);
+  opacity: 0.7;
+}
+
+/* 20. Stardust Sweep */
+.effect-stardust-sweep {
+  background: linear-gradient(110deg, currentColor 20%, rgba(255,255,255,0.8) 25%, currentColor 30%);
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: stardust-sweep 2.5s linear infinite;
+}
+@keyframes stardust-sweep {
+  to { background-position: 200% center; }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Markdown Rendering Styles */
+/* -------------------------------------------------------------------------- */
+.markdown-body ul, .prose ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.markdown-body ol, .prose ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.markdown-body li, .prose li {
+  margin-bottom: 0.25rem;
+}
+.markdown-body table, .prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+.markdown-body th, .prose th,
+.markdown-body td, .prose td {
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  text-align: left;
+}
+.markdown-body th, .prose th {
+  background-color: var(--panel-bg);
+  font-weight: bold;
+}
+.markdown-body blockquote, .prose blockquote {
+  border-left: 4px solid var(--accent);
+  padding-left: 1rem;
+  margin-left: 0;
+  color: var(--text-muted);
+}
+.markdown-body h1, .prose h1 { font-size: 1.5em; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; }
+.markdown-body h2, .prose h2 { font-size: 1.3em; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; }
+.markdown-body h3, .prose h3 { font-size: 1.1em; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; }
+.markdown-body p, .prose p { margin-bottom: 0.75rem; }
+.markdown-body p:last-child, .prose p:last-child { margin-bottom: 0; }
+
