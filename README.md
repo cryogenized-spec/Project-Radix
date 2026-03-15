@@ -17,6 +17,7 @@ A radical, mathematically rigorous decentralized software ecosystem built as a h
 - [Integrated Artificial Intelligence](#integrated-artificial-intelligence)
 - [Media & File Transfer](#media--file-transfer)
 - [Productivity Ecosystem](#productivity-ecosystem)
+- [Deployment on Vercel](#deployment-on-vercel)
 - [License](#license)
 - [Works Cited](#works-cited)
 
@@ -108,6 +109,42 @@ Unified workspace inside the P2P layer:
 - Universal semantic search (local vector embeddings + WebAssembly)
 - Themeable, minimalist UI with zero-cost CSS variable switching
 
+## Deployment on Vercel (Recommended & Easiest Option)
+
+Project Radix is a pure static Progressive Web App (Vite + React). Vercel provides instant, free, global-edge deployment with zero configuration for frontend-only apps. No backend server required.
+
+Follow these exact steps:
+
+1. **Fork the repo**  
+   Fork the project to your own GitHub account:  
+   [https://github.com/cryogenized-spec/Project-Radix](https://github.com/cryogenized-spec/Project-Radix)  
+   (Click the **Fork** button in the top-right corner.)
+
+2. **Upload / Import to Vercel**  
+   Go to [vercel.com](https://vercel.com) and sign up / sign in with your GitHub account.  
+   Click **New Project** → **Import Git Repository** → select your newly forked repo.
+
+3. **Deploy the website**  
+   Vercel auto-detects Vite.  
+   - **Framework Preset**: Vite  
+   - **Build Command**: `npm run build` (default)  
+   - **Output Directory**: `dist` (default)  
+   Click **Deploy**.  
+   Your live site will be ready in 30–60 seconds at a URL like `https://project-radix-yourusername.vercel.app`.
+
+4. **Use the website and save as a PWA**  
+   Open the deployed Vercel URL in **Google Chrome** (desktop or mobile).  
+   In the address bar you will see a **+ Install** icon (or go to Chrome menu ⋮ → **Install Radix**).  
+   Click it → **Install**.  
+   The app will now appear on your desktop / home screen as a native PWA with full offline support, push notifications, and background sync.
+
+**Additional Tips**
+- Custom domain: Add your own domain for free in the Vercel dashboard (Project Settings → Domains).
+- Environment variables (if using your own Firebase project for signaling): Add them under **Project Settings → Environment Variables** and redeploy.
+- Updates: Any push to your GitHub repo automatically triggers a new deployment.
+
+Your fully sovereign, serverless instance of Radix is now live and installable anywhere in the world.
+
 ## License
 
 **GNU General Public License v3 (GPLv3)**  
@@ -122,8 +159,6 @@ Strong copyleft ensures the code, cryptography, and any derivatives remain forev
 **Radix** is not an incremental improvement on existing messengers.  
 It is the blueprint for the next era of sovereign digital life.
 
-Ready to run locally? Clone the repo, `npm install`, `npm run dev` — and join the decentralized network..
-
-
+Ready to run locally? Clone the repo, `npm install`, `npm run dev` — and join the decentralized network.
 
 Welcome to true digital freedom.
