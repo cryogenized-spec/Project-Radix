@@ -21,39 +21,40 @@ export default defineConfig(({mode}) => {
       }),
       VitePWA({
         registerType: 'autoUpdate',
-        manifestFilename: 'app-manifest.json',
+        injectRegister: 'inline',
+        manifestFilename: 'app-manifest-v3.json',
         includeAssets: ['icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'],
         manifest: {
-          id: '/',
-          name: 'Digitalis',
+          id: '/?v=3',
+          name: 'Digitalis App',
           short_name: 'Digitalis',
           description: 'A decentralized, local-first workspace for makers, engineers, and technologists.',
           theme_color: '#ff5500',
           background_color: '#000000',
           display: 'standalone',
-          start_url: '/',
+          start_url: '/?v=3',
           scope: '/',
           icons: [
             {
-              src: '/icons/icon-192.png?v=2',
+              src: '/icons/icon-192.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/icons/icon-192.png?v=2',
+              src: '/icons/icon-192.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'maskable'
             },
             {
-              src: '/icons/icon-512.png?v=2',
+              src: '/icons/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/icons/icon-512.png?v=2',
+              src: '/icons/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'
@@ -63,8 +64,10 @@ export default defineConfig(({mode}) => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,avif,wasm}'],
           navigateFallback: '/index.html',
-          maximumFileSizeToCacheInBytes: 10000000,
-          cleanupOutdatedCaches: true
+          maximumFileSizeToCacheInBytes: 15000000,
+          cleanupOutdatedCaches: true,
+          clientsClaim: true,
+          skipWaiting: true
         }
       })
     ],

@@ -259,7 +259,10 @@ export default function App() {
           {renderSidebarButton('settings', SettingsIcon, 'Settings')}
         </div>
         
-        <div className="mt-auto pt-4 sm:pt-6 border-t border-[var(--border)] w-full flex justify-center">
+        <div className="mt-auto pt-4 sm:pt-6 border-t border-[var(--border)] w-full flex flex-col items-center space-y-2">
+          <div className="text-[8px] font-mono text-[var(--text-muted)] uppercase tracking-tighter opacity-50">
+            v1.0.5-fix
+          </div>
           <button onClick={() => {
               if (currentView === 'profile') {
                   setIsSidebarOpen(!isSidebarOpen);

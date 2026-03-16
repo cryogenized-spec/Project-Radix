@@ -23,7 +23,7 @@
       ]
     },
     {
-      "source": "/app-manifest.json",
+      "source": "/app-manifest-v3.json",
       "headers": [
         {
           "key": "Content-Type",
