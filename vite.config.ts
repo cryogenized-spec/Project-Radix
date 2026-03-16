@@ -25,7 +25,7 @@ export default defineConfig(({mode}) => {
         includeAssets: ['icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'],
         manifest: {
           id: '/',
-          name: 'Digitalis Foundry',
+          name: 'Digitalis',
           short_name: 'Digitalis',
           description: 'A decentralized, local-first workspace for makers, engineers, and technologists.',
           theme_color: '#ff5500',
@@ -57,29 +57,6 @@ export default defineConfig(({mode}) => {
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'
-            }
-          ],
-          screenshots: [
-            {
-              src: '/screenshots/mobile-1.avif',
-              sizes: '1080x1920',
-              type: 'image/avif',
-              form_factor: 'narrow',
-              label: 'Chat Interface'
-            },
-            {
-              src: '/screenshots/mobile-2.avif',
-              sizes: '1080x1920',
-              type: 'image/avif',
-              form_factor: 'narrow',
-              label: 'AI Integration'
-            },
-            {
-              src: '/screenshots/desktop-1.avif',
-              sizes: '1920x1080',
-              type: 'image/avif',
-              form_factor: 'wide',
-              label: 'Desktop Dashboard'
             }
           ]
         },
