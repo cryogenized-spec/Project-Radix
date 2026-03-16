@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
@@ -18,6 +19,74 @@ export default defineConfig(({mode}) => {
           process: true,
         },
       }),
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'],
+        manifest: {
+          name: 'Digitalis Foundry',
+          short_name: 'Digitalis',
+          description: 'A decentralized, local-first workspace for makers, engineers, and technologists.',
+          theme_color: '#ff5500',
+          background_color: '#000000',
+          display: 'standalone',
+          start_url: '/',
+          icons: [
+            {
+              src: '/icons/icon-192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any'
+            },
+            {
+              src: '/icons/icon-192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'maskable'
+            },
+            {
+              src: '/icons/icon-512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any'
+            },
+            {
+              src: '/icons/icon-512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable'
+            }
+          ],
+          screenshots: [
+            {
+              src: '/screenshots/mobile-1.avif',
+              sizes: '1080x1920',
+              type: 'image/avif',
+              form_factor: 'narrow',
+              label: 'Chat Interface'
+            },
+            {
+              src: '/screenshots/mobile-2.avif',
+              sizes: '1080x1920',
+              type: 'image/avif',
+              form_factor: 'narrow',
+              label: 'AI Integration'
+            },
+            {
+              src: '/screenshots/desktop-1.avif',
+              sizes: '1920x1080',
+              type: 'image/avif',
+              form_factor: 'wide',
+              label: 'Desktop Dashboard'
+            }
+          ]
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,avif}'],
+          navigateFallback: '/index.html',
+          maximumFileSizeToCacheInBytes: 5000000,
+          cleanupOutdatedCaches: true
+        }
+      })
     ],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || ''),
