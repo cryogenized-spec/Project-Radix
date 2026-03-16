@@ -21,8 +21,10 @@ export default defineConfig(({mode}) => {
       }),
       VitePWA({
         registerType: 'autoUpdate',
+        manifestFilename: 'manifest.json',
         includeAssets: ['icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'],
         manifest: {
+          id: '/',
           name: 'Digitalis Foundry',
           short_name: 'Digitalis',
           description: 'A decentralized, local-first workspace for makers, engineers, and technologists.',
@@ -30,6 +32,7 @@ export default defineConfig(({mode}) => {
           background_color: '#000000',
           display: 'standalone',
           start_url: '/',
+          scope: '/',
           icons: [
             {
               src: '/icons/icon-192.png',
@@ -81,9 +84,9 @@ export default defineConfig(({mode}) => {
           ]
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,avif}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,avif,wasm}'],
           navigateFallback: '/index.html',
-          maximumFileSizeToCacheInBytes: 5000000,
+          maximumFileSizeToCacheInBytes: 10000000,
           cleanupOutdatedCaches: true
         }
       })
