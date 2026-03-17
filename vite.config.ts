@@ -1,11 +1,11 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig, loadEnv} from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig(({mode}) => {
+export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [
@@ -22,17 +22,22 @@ export default defineConfig(({mode}) => {
       VitePWA({
         registerType: 'autoUpdate',
         injectRegister: 'inline',
-        manifestFilename: 'app-manifest-v3.json',
-        includeAssets: ['icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'],
+        manifestFilename: 'manifest.json', // Now matches what we put in index.html
+        includeAssets: [
+          'icons/apple-touch-icon.png', 
+          'icons/icon-192.png', 
+          'icons/icon-512.png',
+          'icons/icon-maskable-512.png' // Brought in the newly created safe-zone icon
+        ],
         manifest: {
-          id: '/?v=3',
-          name: 'Digitalis App',
-          short_name: 'Digitalis',
-          description: 'A decentralized, local-first workspace for makers, engineers, and technologists.',
-          theme_color: '#ff5500',
-          background_color: '#000000',
+          id: '/?v=radix-1',
+          name: 'Project Radix',
+          short_name: 'Radix',
+          description: 'A secure, local-first P2P chat application.',
+          theme_color: '#121212',
+          background_color: '#121212',
           display: 'standalone',
-          start_url: '/?v=3',
+          start_url: '/',
           scope: '/',
           icons: [
             {
@@ -42,19 +47,14 @@ export default defineConfig(({mode}) => {
               purpose: 'any'
             },
             {
-              src: '/icons/icon-192.png',
-              sizes: '192x192',
-              type: 'image/png',
-              purpose: 'maskable'
-            },
-            {
               src: '/icons/icon-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any'
             },
             {
-              src: '/icons/icon-512.png',
+              // Fixed the maskable assignment to use our custom-padded asset
+              src: '/icons/icon-maskable-512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'
@@ -86,8 +86,6 @@ export default defineConfig(({mode}) => {
       chunkSizeWarningLimit: 5000,
     },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
     },
   };
