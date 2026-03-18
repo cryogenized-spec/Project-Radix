@@ -76,7 +76,7 @@ export async function* generateAIResponseStream(prompt: string, mode: 'ghost' | 
       }
   }
 
-  const model = settings.model || 'gemini-3-flash-preview';
+  const model = settings.model || 'gemini-3.1-flash-lite';
   
   const config: any = {
     systemInstruction,
@@ -195,7 +195,7 @@ export async function generateRewrite(text: string, style: string, settings: any
   
   try {
     const response = await ai.models.generateContent({
-      model: settings.model || 'gemini-3-flash-preview',
+      model: settings.model || 'gemini-3.1-flash-lite',
       contents: prompt,
       config: {
         temperature: 0.7
@@ -216,7 +216,7 @@ export async function generateFactCheck(text: string, settings: any) {
   
   try {
     const response = await ai.models.generateContent({
-      model: settings.model || 'gemini-3-flash-preview',
+      model: settings.model || 'gemini-3.1-flash-lite',
       contents: prompt,
       config: {
         temperature: 0.2
@@ -237,7 +237,7 @@ export async function generateTranslation(text: string, targetLang: string, sett
   
   try {
     const response = await ai.models.generateContent({
-      model: settings.model || 'gemini-3-flash-preview',
+      model: settings.model || 'gemini-3.1-flash-lite',
       contents: prompt,
       config: {
         temperature: 0.3
@@ -280,7 +280,7 @@ export async function generateChannelerAnalysis(content: string, promptStrategy:
 
   try {
     const response = await ai.models.generateContentStream({
-      model: settings.model || 'gemini-3-flash-preview',
+      model: settings.model || 'gemini-3.1-flash-lite',
       contents: userPrompt,
       config: {
         systemInstruction: systemPrompt,
@@ -301,7 +301,7 @@ export async function generateVisualAnalysis(base64Image: string, mimeType: stri
   
   try {
     const response = await ai.models.generateContent({
-      model: settings.model || 'gemini-3-flash-preview',
+      model: settings.model || 'gemini-3.1-flash-lite',
       contents: [
         {
           inlineData: {
@@ -334,9 +334,9 @@ export async function transcribeAudio(base64Audio: string, mimeType: string, set
   const ai = new GoogleGenAI(settings.apiUrl ? { apiKey, httpOptions: { baseUrl: settings.apiUrl } } : { apiKey });
   
   try {
-    // Using gemini-3-flash-preview as it is the standard model for this environment
+    // Using gemini-3.1-flash-lite as it is the standard model for this environment
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.1-flash-lite',
       contents: [
         {
           inlineData: {
@@ -368,7 +368,7 @@ export async function executePromptOnNote(noteContent: string, prompt: string, s
   const ai = new GoogleGenAI(settings.apiUrl ? { apiKey, httpOptions: { baseUrl: settings.apiUrl } } : { apiKey });
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.1-flash-lite',
       contents: `You are an expert Markdown editor. Your task is to modify the provided note content based on the user's prompt.
 Return the updated note content in well-structured Markdown.
 DO NOT add conversational filler.
@@ -402,7 +402,7 @@ export async function generateSubtasks(taskTitle: string, settings: any): Promis
   const ai = new GoogleGenAI(settings.apiUrl ? { apiKey, httpOptions: { baseUrl: settings.apiUrl } } : { apiKey });
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.1-flash-lite',
       contents: `You are an expert organizer and productivity coach. Break down the following task into 2 to 3 highly specific, actionable subtasks to jumpstart momentum. 
 Return ONLY a valid JSON array of strings representing the subtasks. Do not include markdown formatting like \`\`\`json.
 
@@ -435,7 +435,7 @@ export async function transformToMarkdown(text: string, settings: any): Promise<
   const ai = new GoogleGenAI(settings.apiUrl ? { apiKey, httpOptions: { baseUrl: settings.apiUrl } } : { apiKey });
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.1-flash-lite',
       contents: `You are an expert Markdown formatter. Your task is to ONLY format the provided text into well-structured Obsidian Markdown. 
 DO NOT add new information, DO NOT remove existing information, and DO NOT add conversational filler.
 Just apply headings, lists, bolding, italics, and other markdown features to make it readable and structured.

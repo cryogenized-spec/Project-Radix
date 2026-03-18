@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Terminal, ChevronLeft, ChevronRight, Radio, Menu, MessageSquare, Bot, Calendar, Mail, UserPlus, Key, Server, Settings as SettingsIcon, Compass, FileText, Share2, Users } from 'lucide-react';
+import { Terminal, ChevronLeft, ChevronRight, Radio, Menu, MessageSquare, Bot, Calendar, Mail, UserPlus, Key, Server, Settings as SettingsIcon, Compass, FileText, Share2, Users, Pin } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import Chat from './components/Chat';
 import Settings, { THEMES } from './components/Settings';
@@ -13,12 +13,16 @@ import StorageWarning from './components/StorageWarning';
 import EmailDispatch from './components/EmailDispatch';
 import StorageRouting from './components/StorageRouting';
 import Tools from './components/Tools';
+import SharedImageHandler from './components/SharedImageHandler';
 import { getSetting } from './lib/db';
 import { injectGoogleFont } from './lib/fonts';
 import { handleBack, registerBackHandler } from './lib/backButton';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'chat' | 'ai_chat' | 'add_contact' | 'api_lockbox' | 'settings' | 'profile' | 'agent_manager' | 'organizer' | 'email_dispatch' | 'storage_routing' | 'tools'>('chat');
+  const [sharedId, setSharedId] = useState<string | null>(null);
+  const [hasPinnedSession, setHasPinnedSession] = useState(false);
+  const [showSharedHandler, setShowSharedHandler] = useState(false);
   const [profile, setProfile] = useState<any>({ name: 'User', about: 'Available', avatar: '', aiAvatar: '' });
   const [isLoaded, setIsLoaded] = useState(false);
   const [wallpaper, setWallpaper] = useState('');
@@ -44,6 +48,26 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Check for shared_id in URL
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('shared_id');
+    if (id) {
+      setSharedId(id);
+      setShowSharedHandler(true);
+      // Clean up URL
+      window.history.replaceState({}, '', '/');
+    }
+
+    const checkPinned = async () => {
+      const session = await getSetting('pinned_shared_session');
+      if (session && session.isPinned) {
+        setHasPinnedSession(true);
+      } else {
+        setHasPinnedSession(false);
+      }
+    };
+    checkPinned();
+
     // Initialize history state
     window.history.pushState({ root: true }, '');
 
@@ -333,6 +357,28 @@ export default function App() {
           )}
           <div className="relative z-10 h-full">
             {renderView()}
+            {showSharedHandler && (
+              <SharedImageHandler 
+                sharedId={sharedId} 
+                onClose={() => {
+                  setShowSharedHandler(false);
+                  setSharedId(null);
+                  // Re-check pinned state when closing
+                  getSetting('pinned_shared_session').then(session => {
+                    setHasPinnedSession(!!(session && session.isPinned));
+                  });
+                }} 
+              />
+            )}
+            {hasPinnedSession && !showSharedHandler && (
+              <DraggableFab
+                icon={<Pin className="w-5 h-5" />}
+                onClick={() => setShowSharedHandler(true)}
+                storageKey="pinned_session_fab_pos"
+                defaultPosition={{ x: window.innerWidth - 60, y: window.innerHeight - 120 }}
+                className="p-3 rounded-full bg-yellow-500 text-black shadow-lg hover:bg-yellow-400 z-40"
+              />
+            )}
             {showExitToast && (
               <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-full text-sm z-50 animate-in fade-in slide-in-from-bottom-4">
                 Press back again to exit

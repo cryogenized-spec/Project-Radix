@@ -106,8 +106,8 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<{ text: string, type: string, image?: string } | null>(null);
   const [longPressDuration, setLongPressDuration] = useState(250);
-  const [textSize, setTextSize] = useState(14);
-  const [chatScale, setChatScale] = useState(2.0);
+  const [textSize, setTextSize] = useState(13);
+  const [chatScale, setChatScale] = useState(1.0);
 
   // Group Creation State
   const [newGroupName, setNewGroupName] = useState('');
@@ -484,7 +484,7 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
 
     const cs = await getSetting('chatScale');
     if (cs !== undefined) setChatScale(cs);
-    else setChatScale(2.0);
+    else setChatScale(1.0);
 
     const vq = await getSetting('videoQuality');
     if (vq) setMediaQuality(vq as '720p' | '1080p' | 'original');

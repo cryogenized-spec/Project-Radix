@@ -4,8 +4,10 @@ import { Icon } from '@iconify/react';
 import { getSetting, setSetting, getAgents, addAgent } from '../lib/db';
 import { GoogleGenAI } from '@google/genai';
 import { encryptApiKey, decryptApiKey } from '../lib/apiKeyCrypto';
+import { ModelSelector } from './ModelSelector';
+import { LOCAL_MODELS } from '../lib/ModelService';
 
-const PROVIDERS = ['Anthropic', 'DeepSeek', 'Google', 'Moonshot', 'OpenAI', 'xAI', 'Local (Gemini Nano)'];
+const PROVIDERS = ['Anthropic', 'DeepSeek', 'Google', 'Moonshot', 'OpenAI', 'xAI', 'Local (Gemini Nano)', 'Local Intelligence'];
 const STT_PROVIDERS = ['Local (Gemini Nano)', 'OpenAI (ChatGPT 4o)', 'OpenAI (ChatGPT 4o mini)', 'Google Cloud', 'Native Device'];
 
 const PROVIDER_ICONS: Record<string, string> = {
@@ -16,6 +18,7 @@ const PROVIDER_ICONS: Record<string, string> = {
   'OpenAI': 'simple-icons:openai',
   'xAI': 'ri:twitter-x-fill',
   'Local (Gemini Nano)': 'logos:google-gemini',
+  'Local Intelligence': 'lucide:hard-drive',
   'OpenAI (ChatGPT 4o)': 'simple-icons:openai',
   'OpenAI (ChatGPT 4o mini)': 'simple-icons:openai',
   'Google Cloud': 'logos:google-cloud',
@@ -23,11 +26,11 @@ const PROVIDER_ICONS: Record<string, string> = {
 };
 
 const GOOGLE_MODELS = [
+  'gemini-3.1-flash-lite',
   'gemini-3-flash-preview',
   'gemini-3.1-pro-preview',
   'gemini-3-pro',
   'gemini-3-flash',
-  'gemini-3.1-flash-lite',
   'gemini-2.5-pro',
   'gemini-2.5-flash',
   'gemini-nano'
@@ -40,7 +43,8 @@ const PROVIDER_MODELS: Record<string, string[]> = {
   'Moonshot': ['Kimi K2.5 (Thinking)', 'Kimi K2', 'Kimi-K2-Instruct-0905', 'Kimi-Researcher', 'Kimi-Dev'],
   'OpenAI': ['gpt-5.4', 'gpt-5.4-pro', 'gpt-5-mini', 'gpt-5-nano', 'gpt-5.3-codex', 'gpt-4.1', 'o3-mini'],
   'xAI': ['grok-2-latest', 'grok-2-vision-latest', 'grok-beta'],
-  'Local (Gemini Nano)': ['gemini-nano', 'llama3', 'mistral', 'phi3']
+  'Local (Gemini Nano)': ['gemini-nano', 'llama3', 'mistral', 'phi3'],
+  'Local Intelligence': LOCAL_MODELS.map(m => m.id)
 };
 
 const PROVIDER_API_PATHS: Record<string, string> = {
@@ -60,7 +64,7 @@ const PLACEHOLDERS: Record<string, string> = {
   'Moonshot': 'sk-...',
   'OpenAI': 'sk-proj-...',
   'xAI': 'xai-...',
-  'Local (Gemini Nano)': 'No API Key necessary'
+  'Local (Gemini Nano)': 'No API Key Needed'
 };
 
 const VTT_PROFILES: Record<string, { temp: number, desc: string }> = {
@@ -78,7 +82,7 @@ export default function ApiLockbox() {
   const [provider, setProvider] = useState('Google');
   const [apiKey, setApiKey] = useState('');
   const [apiUrl, setApiUrl] = useState(PROVIDER_API_PATHS['Google']);
-  const [model, setModel] = useState('gemini-3-flash-preview');
+  const [model, setModel] = useState('gemini-3.1-flash-lite');
   
   const [sttProvider, setSttProvider] = useState('Local (Gemini Nano)');
   const [sttApiKey, setSttApiKey] = useState('');
@@ -218,17 +222,17 @@ export default function ApiLockbox() {
   }, [provider, apiKey, apiUrl, model, sttProvider, sttApiKey, settings, targetTokens, maxTokens, longPressDelay, streamTokens, vttProfile, privatePersona, publicPersona, rewriteFormal, rewriteCasual, rewriteWarm]);
 
   useEffect(() => {
-    loadAgents();
+    loadAgents(true);
   }, []);
 
   useEffect(() => {
     loadSettingsForAgent(selectedAgentId);
   }, [selectedAgentId, agents]);
 
-  const loadAgents = async () => {
+  const loadAgents = async (isInitial = false) => {
     const loaded = await getAgents();
     setAgents(loaded || []);
-    if (loaded && loaded.length > 0 && selectedAgentId === 'default') {
+    if (isInitial && loaded && loaded.length > 0 && selectedAgentId === 'default') {
       setSelectedAgentId(loaded[0].id);
     }
   };
@@ -255,7 +259,7 @@ export default function ApiLockbox() {
       const sttKeys = await getSetting('stt_api_keys') || {};
       setSttApiKey(await decryptApiKey(sttKeys[savedSttProvider] || ''));
 
-      setModel(aiSettings.model || 'gemini-3-flash-preview');
+      setModel(aiSettings.model || 'gemini-3.1-flash-lite');
       setSettings(aiSettings.settings || {
           public: { temperature: aiSettings.temperature ?? 0.7, topP: aiSettings.topP ?? 0.9, thinkingBudget: aiSettings.thinkingBudget ?? 80 },
           private: { temperature: aiSettings.temperature ?? 0.7, topP: aiSettings.topP ?? 0.9, thinkingBudget: aiSettings.thinkingBudget ?? 80 }
@@ -289,7 +293,7 @@ export default function ApiLockbox() {
         setProvider(agent.provider || 'Google');
         setApiKey(await decryptApiKey(agent.apiKey || ''));
         setApiUrl(agent.apiUrl || PROVIDER_API_PATHS[agent.provider || 'Google'] || '');
-        setModel(agent.model || 'gemini-3-flash-preview');
+        setModel(agent.model || 'gemini-3.1-flash-lite');
         setSettings(agent.settings || {
             public: { temperature: agent.temperature ?? 0.7, topP: agent.topP ?? 0.9, thinkingBudget: agent.thinkingBudget ?? 80 },
             private: { temperature: agent.temperature ?? 0.7, topP: agent.topP ?? 0.9, thinkingBudget: agent.thinkingBudget ?? 80 }
@@ -373,7 +377,7 @@ export default function ApiLockbox() {
         const ai = new GoogleGenAI({ apiKey });
         const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Request timed out')), 10000));
         await Promise.race([
-          ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: 'test' }),
+          ai.models.generateContent({ model: 'gemini-3.1-flash-lite', contents: 'test' }),
           timeout
         ]);
         textAiSuccess = true;
@@ -466,7 +470,7 @@ export default function ApiLockbox() {
             <Bot size={14} className="mr-2 sm:w-4 sm:h-4" />
             Select Agent to Configure
           </h2>
-          <button onClick={loadAgents} className="text-[var(--text-muted)] hover:text-[var(--accent)]">
+          <button onClick={() => loadAgents()} className="text-[var(--text-muted)] hover:text-[var(--accent)]">
             <RefreshCw size={14} />
           </button>
         </div>
@@ -522,7 +526,7 @@ export default function ApiLockbox() {
             </div>
           </div>
 
-          {PROVIDER_MODELS[provider] && (
+          {PROVIDER_MODELS[provider] && provider !== 'Local Intelligence' && (
             <div className="space-y-1.5 sm:space-y-2">
               <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Model Selection</label>
               <select 
@@ -531,32 +535,48 @@ export default function ApiLockbox() {
                 className="w-full radix-input p-2.5 sm:p-3 text-xs sm:text-sm rounded-xl appearance-none"
               >
                 {PROVIDER_MODELS[provider].map(m => <option key={m} value={m}>{m}</option>)}
+                {LOCAL_MODELS.some(m => m.id === model) && (
+                  <option value={model}>{LOCAL_MODELS.find(m => m.id === model)?.name} (Local)</option>
+                )}
               </select>
             </div>
           )}
           
-          <div className={`space-y-1.5 sm:space-y-2 ${!PROVIDER_MODELS[provider] ? 'md:col-span-2' : ''}`}>
-            <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">API Key</label>
-            <input 
-              type="password" 
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={PLACEHOLDERS[provider] || 'Enter API Key...'}
-              disabled={provider === 'Local (Gemini Nano)'}
-              className="w-full radix-input p-2.5 sm:p-3 text-xs sm:text-sm rounded-xl disabled:opacity-50"
-            />
-          </div>
+          {provider === 'Local Intelligence' && (
+            <div className="md:col-span-2 pt-4 border-t border-[var(--border)]">
+              <ModelSelector 
+                selectedModelId={model} 
+                onSelectModel={(modelId) => setModel(modelId)} 
+              />
+            </div>
+          )}
+          
+          {provider !== 'Local Intelligence' && (
+            <>
+              <div className={`space-y-1.5 sm:space-y-2 ${!PROVIDER_MODELS[provider] ? 'md:col-span-2' : ''}`}>
+                <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">API Key</label>
+                <input 
+                  type="password" 
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={PLACEHOLDERS[provider] || 'Enter API Key...'}
+                  disabled={provider === 'Local (Gemini Nano)'}
+                  className="w-full radix-input p-2.5 sm:p-3 text-xs sm:text-sm rounded-xl disabled:opacity-50"
+                />
+              </div>
 
-          <div className="space-y-1.5 sm:space-y-2 md:col-span-2">
-            <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">API Base URL</label>
-            <input 
-              type="text" 
-              value={apiUrl}
-              onChange={(e) => setApiUrl(e.target.value)}
-              placeholder="https://api.example.com/v1"
-              className="w-full radix-input p-2.5 sm:p-3 text-xs sm:text-sm rounded-xl"
-            />
-          </div>
+              <div className="space-y-1.5 sm:space-y-2 md:col-span-2">
+                <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">API Base URL</label>
+                <input 
+                  type="text" 
+                  value={apiUrl}
+                  onChange={(e) => setApiUrl(e.target.value)}
+                  placeholder="https://api.example.com/v1"
+                  className="w-full radix-input p-2.5 sm:p-3 text-xs sm:text-sm rounded-xl"
+                />
+              </div>
+            </>
+          )}
         </div>
       </section>
 

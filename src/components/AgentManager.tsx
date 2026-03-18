@@ -62,6 +62,10 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
   const [isWorkbench, setIsWorkbench] = useState(false);
   const [workbenchMode, setWorkbenchMode] = useState<'ghost' | 'public'>('ghost');
 
+  // Yellow Pin (Call / Shared Images)
+  const [isCall, setIsCall] = useState(false);
+  const [callMode, setCallMode] = useState<'ghost' | 'public'>('ghost');
+
   const [cronJobs, setCronJobs] = useState<any[]>([]);
 
   const [loadingState, setLoadingState] = useState<LoadingStateConfig>({
@@ -86,7 +90,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
       portraitScale, portraitAspectRatio,
       moodPortraits, moodDetectionPrompt, roleplayEnabled, roleplayInstruction,
       storageAccess,
-      isPrimary, primaryMode, isOrganizer, organizerMode, isFeed, feedMode, isWorkbench, workbenchMode, cronJobs, loadingState
+      isPrimary, primaryMode, isOrganizer, organizerMode, isFeed, feedMode, isWorkbench, workbenchMode, isCall, callMode, cronJobs, loadingState
     };
 
     // If we are not at the end of history, truncate future
@@ -139,6 +143,8 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
       setFeedMode(state.feedMode || 'ghost');
       setIsWorkbench(state.isWorkbench || false);
       setWorkbenchMode(state.workbenchMode || 'ghost');
+      setIsCall(state.isCall || false);
+      setCallMode(state.callMode || 'ghost');
       setCronJobs(state.cronJobs);
       if (state.loadingState) setLoadingState(state.loadingState);
   };
@@ -167,7 +173,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
                   portraitScale, portraitAspectRatio,
                   moodPortraits, moodDetectionPrompt, roleplayEnabled, roleplayInstruction,
                   storageAccess,
-                  isPrimary, primaryMode, isOrganizer, organizerMode, isFeed, feedMode, isWorkbench, workbenchMode, cronJobs, loadingState
+                  isPrimary, primaryMode, isOrganizer, organizerMode, isFeed, feedMode, isWorkbench, workbenchMode, isCall, callMode, cronJobs, loadingState
               });
               
               const lastState = historyRef.current[historyIndexRef.current];
@@ -177,7 +183,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
           }
       }, 1000); // 1 second debounce
       return () => clearTimeout(timer);
-  }, [name, privatePersona, publicPersona, font, fontUrl, fontColor, streamResponse, portraitScale, portraitAspectRatio, moodPortraits, moodDetectionPrompt, roleplayEnabled, roleplayInstruction, storageAccess, isPrimary, primaryMode, isOrganizer, organizerMode, isFeed, feedMode, isWorkbench, workbenchMode, cronJobs, loadingState, isEditing]);
+  }, [name, privatePersona, publicPersona, font, fontUrl, fontColor, streamResponse, portraitScale, portraitAspectRatio, moodPortraits, moodDetectionPrompt, roleplayEnabled, roleplayInstruction, storageAccess, isPrimary, primaryMode, isOrganizer, organizerMode, isFeed, feedMode, isWorkbench, workbenchMode, isCall, callMode, cronJobs, loadingState, isEditing]);
 
 
   useEffect(() => {
@@ -301,6 +307,9 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
     setIsWorkbench(agent.isWorkbench || false);
     setWorkbenchMode(agent.workbenchMode || 'ghost');
     
+    setIsCall(agent.isCall || false);
+    setCallMode(agent.callMode || 'ghost');
+    
     setCronJobs(agent.cronJobs || []);
     setLoadingState(agent.loadingState || {
       enabled: false,
@@ -352,6 +361,12 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
             await addAgent({ ...otherWorkbench, isWorkbench: false });
         }
     }
+    if (isCall) {
+        const otherCall = agents.find(a => a.id !== agentId && a.isCall);
+        if (otherCall) {
+            await addAgent({ ...otherCall, isCall: false });
+        }
+    }
 
     const newAgent = {
       ...(currentAgent || {}),
@@ -383,6 +398,8 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
       feedMode,
       isWorkbench, // Purple Pin
       workbenchMode,
+      isCall, // Yellow Pin
+      callMode,
       cronJobs,
       loadingState,
       createdAt: currentAgent ? currentAgent.createdAt : Date.now()
@@ -911,6 +928,36 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
                       className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${isWorkbench ? 'bg-purple-500' : 'bg-[var(--border)]'}`}
                   >
                       <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isWorkbench ? 'left-7' : 'left-1'}`} />
+                  </button>
+              </div>
+          </div>
+
+          {/* Yellow Pin / Call (Shared Images) */}
+          <div className="flex items-start justify-between p-4 bg-[var(--panel-bg)] border border-[var(--border)] rounded-xl gap-4">
+              <div className="flex items-start space-x-3 flex-1 min-w-0">
+                  <div className={`p-2 rounded-full shrink-0 ${isCall ? 'bg-yellow-500/20 text-yellow-500' : 'bg-[var(--bg-color)] text-[var(--text-muted)]'}`}>
+                      <Pin size={20} />
+                  </div>
+                  <div className="min-w-0">
+                      <div className="font-bold text-sm truncate">Call Agent (Yellow Pin)</div>
+                      <div className="text-[10px] text-[var(--text-muted)] leading-tight break-words">Handles shared images and persistent call sessions.</div>
+                  </div>
+              </div>
+              <div className="flex flex-col items-end space-y-2 shrink-0">
+                  {isCall && (
+                      <button 
+                        onClick={() => setCallMode(callMode === 'ghost' ? 'public' : 'ghost')}
+                        className="flex items-center space-x-1 px-2 py-1 rounded bg-[var(--bg-color)] border border-[var(--border)] text-[10px] uppercase font-bold"
+                      >
+                          {callMode === 'ghost' ? <Ghost size={12} /> : <Users size={12} />}
+                          <span>{callMode}</span>
+                      </button>
+                  )}
+                  <button 
+                      onClick={() => setIsCall(!isCall)}
+                      className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${isCall ? 'bg-yellow-500' : 'bg-[var(--border)]'}`}
+                  >
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isCall ? 'left-7' : 'left-1'}`} />
                   </button>
               </div>
           </div>

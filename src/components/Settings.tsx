@@ -42,7 +42,7 @@ export default function Settings() {
   const [colorMode, setColorMode] = useState<'dark' | 'light' | 'system'>('system');
   const [emoticonPack, setEmoticonPack] = useState('Native OS');
   const [longPressDuration, setLongPressDuration] = useState(250);
-  const [textSize, setTextSize] = useState(14);
+  const [textSize, setTextSize] = useState(13);
   const [wallpaper, setWallpaper] = useState('');
   const [identity, setIdentity] = useState<any>(null);
   const [sidebarMode, setSidebarMode] = useState<'fixed' | 'collapsible'>('fixed');

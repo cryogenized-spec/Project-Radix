@@ -215,7 +215,7 @@ export default function OrganizerFab({ onNotification, onNavigate }: OrganizerFa
 
         const response = await generateAIResponse(prompt, 'participant', historyContext, { 
             apiKey, 
-            model: organizerAgent?.model || 'gemini-3-flash-preview',
+            model: organizerAgent?.model || 'gemini-3.1-flash-lite',
             publicPersona: "You are an executive function engine. Output JSON actions." // Override persona for this specific functional call to ensure JSON
         });
         
@@ -314,7 +314,7 @@ export default function OrganizerFab({ onNotification, onNavigate }: OrganizerFa
                 transition={{ duration: 0.15, ease: "easeOut" }}
                 onClick={async () => {
                   // @ts-ignore
-                  const id = await organizerDb.notes.add({ content: '# New Note\n\n', createdAt: Date.now(), updatedAt: Date.now(), isFolder: false, orderIndex: 0 });
+                  const id = await organizerDb.notes.add({ content: '', createdAt: Date.now(), updatedAt: Date.now(), isFolder: false, orderIndex: 0 });
                   setIsMenuOpen(false);
                   if (onNotification) onNotification("Created new note");
                   if (onNavigate) onNavigate('notes');

@@ -116,7 +116,7 @@ export default React.memo(function Organizer() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[var(--bg-color)] relative overflow-hidden">
+    <div className="flex flex-col h-full bg-[var(--bg-color)] relative overflow-hidden pwa-bg">
       {/* Header / Navigation */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--panel-bg)] z-10">
         <Reorder.Group 
@@ -207,7 +207,7 @@ export default React.memo(function Organizer() {
                   <div className="bg-[var(--panel-bg)] border border-[var(--border)] rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 relative">
                       <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-color)] sticky top-0 z-10">
                           <h3 className="font-bold text-lg text-[var(--text-main)] flex items-center gap-2">
-                              <Settings size={20} /> My Schedule
+                              <Settings size={20} /> Organizer Settings
                           </h3>
                           <button onClick={() => setShowSettingsModal(false)} className="p-1 hover:bg-[var(--panel-bg)] rounded-full">
                               <X size={20} />
@@ -327,7 +327,13 @@ export default React.memo(function Organizer() {
                                     min="10" 
                                     max="20" 
                                     value={userSettings.notesFontSize || 14}
-                                    onChange={(e) => setUserSettings({ ...userSettings, notesFontSize: parseInt(e.target.value) })}
+                                    onChange={async (e) => {
+                                      const newSize = parseInt(e.target.value);
+                                      const newSettings = { ...userSettings, notesFontSize: newSize };
+                                      setUserSettings(newSettings);
+                                      await organizerDb.settings.update(userSettings.id!, newSettings as any);
+                                      window.dispatchEvent(new Event('settings:updated'));
+                                    }}
                                     className="w-full accent-[var(--accent)]"
                                   />
                                 </div>

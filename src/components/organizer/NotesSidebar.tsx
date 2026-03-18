@@ -82,7 +82,7 @@ const SortableItem = ({ note, selectedNote, onSelectNote, onNotesChange, depth =
   const handleAddInside = async (e: React.MouseEvent, isFolder: boolean) => {
     e.stopPropagation();
     const newNote: Note = {
-      content: isFolder ? 'New Folder' : '# New Note\n\nStart typing...',
+      content: isFolder ? 'New Folder' : '',
       createdAt: Date.now(),
       updatedAt: Date.now(),
       isFolder,

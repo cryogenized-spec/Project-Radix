@@ -91,7 +91,7 @@ export default function NotesView() {
   const [previewMode, setPreviewMode] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [viewMode, setViewMode] = useState<'list' | 'graph' | 'canvas'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'folders' | 'graph' | 'canvas'>('list');
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   // Context Menu State
@@ -249,6 +249,25 @@ export default function NotesView() {
     setPreviewMode(false);
     setSuggestions([]);
   };
+
+  // Auto-save effect
+  useEffect(() => {
+    if (!isEditing || !selectedNote) return;
+
+    const timer = setTimeout(async () => {
+      if (selectedNote.content !== editContent) {
+        await db.notes.update(selectedNote.id!, { content: editContent, updatedAt: Date.now() });
+        // Update the selected note locally to prevent re-triggering if not needed,
+        // but since we don't update selectedNote.content here, it might trigger again if we rely on it.
+        // Actually, just updating the DB is fine.
+        // We should also update the notes list so the sidebar reflects changes.
+        const loadedNotes = await db.notes.orderBy('updatedAt').reverse().toArray();
+        setNotes(loadedNotes);
+      }
+    }, 1000); // 1 second debounce
+
+    return () => clearTimeout(timer);
+  }, [editContent, isEditing, selectedNote]);
 
   const handleSave = async () => {
     if (!selectedNote) return;
@@ -466,20 +485,51 @@ export default function NotesView() {
     }
 
     return (
-      <div className="flex flex-col h-full relative">
-        <div className="absolute top-6 right-4 z-20 flex gap-2">
-          <button 
-            onClick={() => setCommandPaletteOpen(true)}
-            className="p-2 bg-[var(--panel-bg)]/80 backdrop-blur border border-[var(--border)] rounded-xl text-[var(--text-muted)] shadow-lg"
-          >
-            <Search size={18} />
-          </button>
-          <button 
-            onClick={() => setViewMode('canvas')}
-            className="p-2 bg-[var(--panel-bg)]/80 backdrop-blur border border-[var(--border)] rounded-xl text-[var(--accent)] shadow-lg"
-          >
-            <Network size={18} />
-          </button>
+      <div className="flex flex-col h-full relative bg-[var(--panel-bg)]">
+        <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-color)]">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-[var(--accent)] mr-2">Notes</h2>
+            <div className="flex bg-[var(--panel-bg)] rounded-lg p-0.5 border border-[var(--border)]">
+              <button 
+                onClick={() => setViewMode('list')}
+                className={`px-2 py-1 text-xs font-bold rounded-md ${viewMode === 'list' ? 'bg-[var(--accent)] text-black' : 'text-[var(--text-muted)]'}`}
+              >
+                List
+              </button>
+              <button 
+                onClick={() => setViewMode('folders')}
+                className={`px-2 py-1 text-xs font-bold rounded-md ${viewMode === 'folders' ? 'bg-[var(--accent)] text-black' : 'text-[var(--text-muted)]'}`}
+              >
+                Folders
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center space-x-1">
+            <button 
+              onClick={() => setCommandPaletteOpen(true)}
+              className="p-2 rounded-full hover:bg-[var(--panel-bg)] text-[var(--text-muted)]"
+            >
+              <Search size={18} />
+            </button>
+            <button 
+              onClick={() => setViewMode('canvas')}
+              className="p-2 rounded-full hover:bg-[var(--panel-bg)] text-[var(--accent)]"
+            >
+              <Network size={18} />
+            </button>
+            <button onClick={() => {
+                const newNote = { content: '', createdAt: Date.now(), updatedAt: Date.now(), isFolder: false, orderIndex: notes.filter(n => !n.parentId).length };
+                db.notes.add(newNote as any).then(() => loadNotes());
+            }} className="p-2 hover:bg-[var(--panel-bg)] rounded-full text-[var(--accent)]" title="New Note">
+              <Plus size={18} />
+            </button>
+            <button onClick={() => {
+                const newFolder = { content: 'New Folder', createdAt: Date.now(), updatedAt: Date.now(), isFolder: true, orderIndex: notes.filter(n => !n.parentId).length };
+                db.notes.add(newFolder as any).then(() => loadNotes());
+            }} className="p-2 hover:bg-[var(--panel-bg)] rounded-full text-[var(--accent)]" title="New Folder">
+              <FolderPlus size={18} />
+            </button>
+          </div>
         </div>
         <CommandPalette 
           open={commandPaletteOpen} 
@@ -491,32 +541,52 @@ export default function NotesView() {
             setPreviewMode(false);
           }} 
         />
-        <MobileNotesList 
-          notes={notes}
-          tileSize={notesListTileSize}
-          onSelect={(note) => {
-            setSelectedNote(note);
-            setEditContent(note.content);
-            setIsEditing(false);
-            setPreviewMode(false);
-          }}
-          onArchive={async (note) => {
-            await db.notes.delete(note.id!);
-            loadNotes();
-          }}
-          onCreateNote={async () => {
-            const newNote = { content: '# New Note\n\nStart typing...', createdAt: Date.now(), updatedAt: Date.now(), isFolder: false, orderIndex: notes.filter(n => !n.parentId).length };
-            const id = await db.notes.add(newNote as any);
-            const added = await db.notes.get(id);
-            if (added) {
-              setSelectedNote(added);
-              setEditContent(added.content);
-              setIsEditing(true);
-              setPreviewMode(false);
-              loadNotes();
-            }
-          }}
-        />
+        <div className="flex-1 overflow-y-auto">
+          {viewMode === 'list' ? (
+            <MobileNotesList 
+              key={notesListTileSize}
+              notes={notes}
+              tileSize={notesListTileSize}
+              onSelect={(note) => {
+                setSelectedNote(note);
+                setEditContent(note.content);
+                setIsEditing(false);
+                setPreviewMode(false);
+              }}
+              onArchive={async (note) => {
+                await db.notes.delete(note.id!);
+                loadNotes();
+              }}
+              onCreateNote={async () => {
+                const newNote = { content: '', createdAt: Date.now(), updatedAt: Date.now(), isFolder: false, orderIndex: notes.filter(n => !n.parentId).length };
+                const id = await db.notes.add(newNote as any);
+                const added = await db.notes.get(id);
+                if (added) {
+                  setSelectedNote(added);
+                  setEditContent(added.content);
+                  setIsEditing(true);
+                  setPreviewMode(false);
+                  loadNotes();
+                }
+              }}
+            />
+          ) : (
+            <NotesSidebar 
+              notes={notes}
+              selectedNote={selectedNote}
+              onSelectNote={(note) => {
+                setSelectedNote(note);
+                setEditContent(note.content);
+                setIsEditing(false);
+                setPreviewMode(false);
+              }}
+              onNotesChange={loadNotes}
+              onDoubleClickNote={(note) => {
+                handleEdit(note);
+              }}
+            />
+          )}
+        </div>
       </div>
     );
   }
@@ -563,7 +633,7 @@ export default function NotesView() {
                 <LayoutTemplate size={18} />
               </button>
               <button onClick={() => {
-                  const newNote = { content: '# New Note\n\nStart typing...', createdAt: Date.now(), updatedAt: Date.now(), isFolder: false, orderIndex: notes.filter(n => !n.parentId).length };
+                  const newNote = { content: '', createdAt: Date.now(), updatedAt: Date.now(), isFolder: false, orderIndex: notes.filter(n => !n.parentId).length };
                   db.notes.add(newNote as any).then(() => loadNotes());
               }} className="p-1 hover:bg-[var(--bg-color)] rounded-full text-[var(--accent)]" title="New Note">
                 <Plus size={18} />
@@ -659,7 +729,7 @@ export default function NotesView() {
                       {previewMode ? <Edit2 size={16} /> : <Eye size={16} />}
                     </button>
                     <button onClick={handleSave} className="px-4 py-1.5 text-xs font-bold uppercase bg-[var(--accent)] text-black rounded-lg hover:opacity-90 transition-opacity">
-                      Save
+                      Done
                     </button>
                   </>
                 ) : (
@@ -697,7 +767,7 @@ export default function NotesView() {
                     onTouchMove={handleTextareaTouchEnd}
                     className="w-full flex-1 bg-transparent resize-none outline-none font-mono text-[var(--text-main)] min-h-[50vh]"
                     style={{ fontSize: `${notesFontSize}px` }}
-                    placeholder="Type your note here... Use Markdown."
+                    placeholder="# Header&#10;&#10;Start typing..."
                   />
                   
                   {/* Context Menu */}
