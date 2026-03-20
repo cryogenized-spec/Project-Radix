@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Calendar, Clock, Timer, AlertCircle, Hash, Tag, Check, Plus, Trash2 } from 'lucide-react';
+import { X, Calendar, Clock, Timer, AlertCircle, Hash, Tag, Check, Plus, Trash2, CheckSquare } from 'lucide-react';
 import { Task, Subtask } from '../../lib/organizerDb';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -13,23 +13,36 @@ interface TaskEditModalProps {
 export default function TaskEditModal({ task, onClose, onSave }: TaskEditModalProps) {
   const [editText, setEditText] = useState(task.text || task.title || '');
   const [editDate, setEditDate] = useState(task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '');
-  const [editTime, setEditTime] = useState(''); // Time handling could be improved
+  const [editTime, setEditTime] = useState(task.dueDate ? new Date(task.dueDate).toTimeString().substring(0, 5) : '');
   const [editDuration, setEditDuration] = useState(task.duration || 0);
   const [editPriority, setEditPriority] = useState(task.priority || 'medium');
   const [editTags, setEditTags] = useState(task.tags?.join(', ') || '');
   const [subtasks, setSubtasks] = useState<Subtask[]>(task.subtasksList || []);
   const [newSubtaskText, setNewSubtaskText] = useState('');
+  const [editCompleted, setEditCompleted] = useState(task.completed || false);
 
   const handleSave = () => {
+    let newDueDate = undefined;
+    if (editDate) {
+      const dateObj = new Date(editDate);
+      if (editTime) {
+        const [hours, minutes] = editTime.split(':');
+        dateObj.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+      }
+      newDueDate = dateObj.getTime();
+    }
+
     onSave({
       ...task,
       text: editText.trim(),
       title: editText.trim(),
-      dueDate: editDate ? new Date(editDate).getTime() : undefined,
+      dueDate: newDueDate,
       duration: editDuration,
       priority: editPriority as any,
       tags: editTags.split(',').map(t => t.trim()).filter(Boolean),
-      subtasksList: subtasks
+      subtasksList: subtasks,
+      completed: editCompleted,
+      status: editCompleted ? 'completed' : 'active'
     });
     onClose();
   };
@@ -61,26 +74,29 @@ export default function TaskEditModal({ task, onClose, onSave }: TaskEditModalPr
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          className="bg-[var(--panel-bg)] border border-[var(--border)] rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col"
+          className="bg-[var(--panel-bg)] border border-[var(--border)] rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[85vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="p-6 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-color)]">
-            <h3 className="font-bold text-xl text-[var(--text-main)] flex items-center gap-2">
-              <span className="text-2xl">✍️</span> Edit Task
+          <div className="p-4 sm:p-6 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-color)] shrink-0">
+            <h3 className="font-bold text-lg sm:text-xl text-[var(--text-main)] flex items-center gap-2">
+              {task.id ? <CheckSquare size={24} className="text-[var(--accent)]" /> : <Plus size={24} className="text-[var(--accent)]" />} {task.id ? 'Edit Task' : 'Add Task'}
             </h3>
             <button onClick={onClose} className="p-2 hover:bg-[var(--panel-bg)] rounded-full transition-colors">
               <X size={20} />
             </button>
           </div>
           
-          <div className="p-6 space-y-6 overflow-y-auto">
-            <input
-              autoFocus
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              className="w-full bg-transparent border-b-2 border-[var(--border)] outline-none font-bold text-2xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] transition-colors"
-              placeholder="What needs to be done?"
-            />
+          <div className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1">
+            <div className="space-y-1">
+              <label className="text-xs font-bold uppercase text-[var(--text-muted)] flex items-center gap-1.5"><CheckSquare size={14} className="text-[var(--accent)]"/> Task Name</label>
+              <input
+                autoFocus
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                className="w-full bg-transparent border-b-2 border-[var(--border)] outline-none font-bold text-xl sm:text-2xl text-[var(--text-main)] placeholder-[var(--text-muted)] focus:border-[var(--accent)] transition-colors py-2"
+                placeholder="What needs to be done?"
+              />
+            </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -135,11 +151,23 @@ export default function TaskEditModal({ task, onClose, onSave }: TaskEditModalPr
             </div>
           </div>
 
-          <div className="p-6 border-t border-[var(--border)] bg-[var(--bg-color)] flex justify-end gap-3">
-            <button onClick={onClose} className="px-6 py-3 rounded-xl text-sm font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors">Cancel</button>
-            <button onClick={handleSave} className="px-6 py-3 rounded-xl bg-[var(--accent)] text-black font-bold text-sm hover:opacity-90 transition-opacity flex items-center gap-2">
-              <Check size={16} /> Save Changes
-            </button>
+          <div className="p-6 border-t border-[var(--border)] bg-[var(--bg-color)] flex justify-between items-center gap-3">
+            <div>
+              {task.id && (
+                <button 
+                  onClick={() => setEditCompleted(!editCompleted)} 
+                  className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors ${editCompleted ? 'bg-green-500/20 text-green-500' : 'bg-[var(--panel-bg)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+                >
+                  <CheckSquare size={16} /> {editCompleted ? 'Completed' : 'Mark Complete'}
+                </button>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={onClose} className="px-6 py-3 rounded-xl text-sm font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors">Cancel</button>
+              <button onClick={handleSave} className="px-6 py-3 rounded-xl bg-[var(--accent)] text-black font-bold text-sm hover:opacity-90 transition-opacity flex items-center gap-2">
+                <Check size={16} /> Save Changes
+              </button>
+            </div>
           </div>
         </motion.div>
       </motion.div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, parseISO, addWeeks, subWeeks, startOfDay, endOfDay, setHours, setMinutes, differenceInMinutes, isBefore, isAfter } from 'date-fns';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Bell, Repeat, Trash2, X, Clock, Edit2, Plus, AlertCircle, Check, Settings, Eye, Sparkles } from 'lucide-react';
-import { db, Event, UserSettings, DaySchedule } from '../../lib/organizerDb';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Bell, Repeat, Trash2, X, Clock, Edit2, Plus, AlertCircle, Check, Settings, Eye, Sparkles, CheckSquare } from 'lucide-react';
+import { db, type Event as OrganizerEvent, UserSettings, DaySchedule } from '../../lib/organizerDb';
 import { useRadixSync } from '../../lib/useRadixSync';
 
 export default function CalendarView() {
@@ -9,22 +9,12 @@ export default function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<OrganizerEvent[]>([]);
   const [expandedEvents, setExpandedEvents] = useState<any[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [weekZoom, setWeekZoom] = useState(1); // 1 = 100% (4 days visible), 0.5 = 50% (7 days visible)
 
-  // Modal State
-  const [showEventModal, setShowEventModal] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  const [eventFormData, setEventFormData] = useState<Partial<Event>>({
-    title: '',
-    date: format(new Date(), 'yyyy-MM-dd'),
-    startTime: '09:00',
-    duration: 60,
-    alertOffset: 0,
-    recurrence: { type: 'none' }
-  });
+
 
   // Context Menu State
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, type: 'event' | 'day', data: any } | null>(null);
@@ -47,9 +37,16 @@ export default function CalendarView() {
     };
     window.addEventListener('organizer:open-cal', handleOpenCal);
     
+    const handleRefresh = () => {
+      loadEvents();
+      expandEventsForView();
+    };
+    window.addEventListener('organizer:refresh', handleRefresh);
+    
     return () => {
       clearInterval(timer);
       window.removeEventListener('organizer:open-cal', handleOpenCal);
+      window.removeEventListener('organizer:refresh', handleRefresh);
     };
   }, [currentDate, view]);
 
@@ -132,11 +129,12 @@ export default function CalendarView() {
                     id: task.id,
                     title: task.title,
                     date: format(taskDate, 'yyyy-MM-dd'),
-                    startTime: '09:00', // Default time
+                    startTime: format(taskDate, 'HH:mm'),
                     duration: task.duration || 60,
                     originalId: task.id,
                     isRecurringInstance: false,
-                    isTask: true
+                    isTask: true,
+                    completed: task.completed
                 });
             }
         }
@@ -168,64 +166,55 @@ export default function CalendarView() {
   };
 
   const openCreateModal = (date?: Date, time?: string) => {
-      setEditingEvent(null);
-      setEventFormData({
-          title: '',
-          date: format(date || new Date(), 'yyyy-MM-dd'),
-          startTime: time || '09:00',
-          duration: 60,
-          alertOffset: 0,
-          recurrence: { type: 'none' }
-      });
-      setShowEventModal(true);
+      let initialDate = date || new Date();
+      if (time) {
+          const [hours, minutes] = time.split(':');
+          initialDate.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+      }
+      window.dispatchEvent(new CustomEvent('organizer:create-task', { detail: { date: initialDate.getTime() } }));
       setContextMenu(null);
   };
 
-  const openEditModal = (event: any) => {
-      setEditingEvent(event);
-      setEventFormData({ ...event });
-      setShowEventModal(true);
-      setContextMenu(null);
-  };
-
-  const handleSaveEvent = async () => {
-      if (!eventFormData.title) return;
-
-      const eventToSave = {
-          ...eventFormData,
-          updatedAt: Date.now()
-      } as Event;
-
-      if (editingEvent) {
-          // Update
-          if (editingEvent.isRecurringInstance) {
-             // Ask logic for series vs instance? For now, update series (originalId)
-             // Simplified: Update the original event definition
-             await db.events.update(editingEvent.originalId!, eventToSave as any);
-          } else {
-             await db.events.update(editingEvent.id!, eventToSave as any);
+  const openEditModal = async (event: any) => {
+      if (event.isTask) {
+          const task = await db.tasks.get(event.id);
+          if (task) {
+              window.dispatchEvent(new CustomEvent('organizer:edit-task', { detail: task }));
           }
       } else {
-          // Create
-          eventToSave.createdAt = Date.now();
-          await db.events.add(eventToSave);
+          // Convert legacy event to task format
+          const dateObj = new Date(`${event.date}T${event.startTime}`);
+          const newTask = {
+              title: event.title,
+              text: event.title,
+              dueDate: dateObj.getTime(),
+              duration: event.duration || 60,
+              priority: 'medium',
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              linkedEventId: event.originalId || event.id
+          };
+          window.dispatchEvent(new CustomEvent('organizer:edit-task', { detail: newTask }));
       }
-
-      setShowEventModal(false);
-      loadEvents();
+      setContextMenu(null);
   };
 
-  const handleDeleteEvent = async (event: any) => {
-      if (confirm("Delete this event?")) {
-          if (event.isRecurringInstance) {
-              // Delete series
-              await db.events.delete(event.originalId);
+
+
+  const handleDeleteEntry = async (entry: any) => {
+      if (confirm("Delete this entry?")) {
+          if (entry.isTask) {
+              await db.tasks.delete(entry.id);
           } else {
-              await db.events.delete(event.id);
+              if (entry.isRecurringInstance) {
+                  await db.events.delete(entry.originalId);
+              } else {
+                  await db.events.delete(entry.id);
+              }
           }
-          setShowEventModal(false);
           setContextMenu(null);
           loadEvents();
+          window.dispatchEvent(new Event('organizer:refresh'));
       }
   };
 
@@ -267,6 +256,12 @@ export default function CalendarView() {
           </button>
         </div>
         <div className="flex items-center space-x-2">
+          <button 
+            onClick={() => window.dispatchEvent(new CustomEvent('organizer:create-task', { detail: { date: currentDate.getTime() } }))}
+            className="hidden sm:flex bg-[var(--accent)] text-black rounded-lg px-2 py-1 text-[10px] font-bold items-center gap-1 shrink-0 whitespace-nowrap"
+          >
+            <CheckSquare size={12} /> Add Task
+          </button>
           {view === 'week' && (
             <div className="hidden sm:flex items-center space-x-2 mr-2 bg-[var(--bg-color)] px-2 py-1 rounded-lg">
               <span className="text-[10px] font-bold uppercase text-[var(--text-muted)]">Zoom</span>
@@ -322,7 +317,7 @@ export default function CalendarView() {
 
   const renderEventItem = (ev: any, isCompact: boolean = false) => {
       const hasAlert = ev.alertOffset && ev.alertOffset > 0;
-      const isOverdue = hasAlert && isBefore(parseISO(`${ev.date}T${ev.startTime}`), new Date());
+      const isOverdue = !ev.completed && isBefore(parseISO(`${ev.date}T${ev.startTime}`), new Date());
       const isRecurring = ev.recurrence && ev.recurrence.type !== 'none';
 
       return (
@@ -333,6 +328,7 @@ export default function CalendarView() {
                 truncate text-[var(--text-main)] cursor-pointer hover:bg-[var(--bg-color)]
                 flex items-center space-x-1 relative group transition-transform duration-200
                 ${isOverdue ? 'border-red-500/50' : ''}
+                ${ev.completed ? 'opacity-50 line-through' : ''}
             `}
             onClick={(e) => {
                 e.stopPropagation();
@@ -343,7 +339,10 @@ export default function CalendarView() {
             onTouchEnd={handleTouchEnd}
             onTouchMove={handleTouchEnd}
         >
-            {hasAlert && (
+            {ev.isTask && (
+                ev.completed ? <Check size={8} className="text-[var(--text-muted)]" /> : <CheckSquare size={8} className="text-[var(--accent)]" />
+            )}
+            {hasAlert && !ev.isTask && (
                 <div className={`w-1.5 h-1.5 rounded-full ${isOverdue ? 'bg-red-500 animate-pulse' : 'bg-yellow-500'}`}></div>
             )}
             {isRecurring && <Repeat size={8} className="text-[var(--text-muted)]" />}
@@ -573,139 +572,7 @@ export default function CalendarView() {
         {view === 'day' && renderDayView()}
       </div>
 
-      {/* Event Modal */}
-      {showEventModal && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm animate-in fade-in">
-              <div className="min-h-screen flex items-center justify-center p-4">
-                  <div className="bg-[var(--panel-bg)] border border-[var(--border)] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 relative">
-                      <div className="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-color)] sticky top-0 z-10">
-                          <h3 className="font-bold text-lg text-[var(--text-main)]">
-                              {editingEvent ? 'Edit Event' : 'New Event'}
-                          </h3>
-                          <button onClick={() => setShowEventModal(false)} className="p-1 hover:bg-[var(--panel-bg)] rounded-full">
-                              <X size={20} />
-                          </button>
-                      </div>
-                      
-                      <div className="p-6 space-y-4">
-                      <div>
-                          <label className="block text-xs font-bold uppercase text-[var(--text-muted)] mb-1">Title</label>
-                          <input 
-                              type="text" 
-                              value={eventFormData.title}
-                              onChange={e => setEventFormData({...eventFormData, title: e.target.value})}
-                              className="w-full bg-[var(--bg-color)] border border-[var(--border)] rounded-lg p-3 text-[var(--text-main)] focus:border-[var(--accent)] outline-none"
-                              placeholder="Event Title"
-                              autoFocus
-                          />
-                      </div>
 
-                      <div>
-                          <label className="block text-xs font-bold uppercase text-[var(--text-muted)] mb-1">Description</label>
-                          <textarea 
-                              value={eventFormData.description || ''}
-                              onChange={e => setEventFormData({...eventFormData, description: e.target.value})}
-                              className="w-full bg-[var(--bg-color)] border border-[var(--border)] rounded-lg p-3 text-[var(--text-main)] focus:border-[var(--accent)] outline-none resize-none h-20"
-                              placeholder="Add details..."
-                          />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                          <div>
-                              <label className="block text-xs font-bold uppercase text-[var(--text-muted)] mb-1">Date</label>
-                              <input 
-                                  type="date" 
-                                  value={eventFormData.date}
-                                  onChange={e => setEventFormData({...eventFormData, date: e.target.value})}
-                                  className="w-full bg-[var(--bg-color)] border border-[var(--border)] rounded-lg p-3 text-[var(--text-main)] outline-none"
-                              />
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold uppercase text-[var(--text-muted)] mb-1">Time</label>
-                              <input 
-                                  type="time" 
-                                  value={eventFormData.startTime}
-                                  onChange={e => setEventFormData({...eventFormData, startTime: e.target.value})}
-                                  className="w-full bg-[var(--bg-color)] border border-[var(--border)] rounded-lg p-3 text-[var(--text-main)] outline-none"
-                              />
-                          </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                          <div>
-                              <label className="block text-xs font-bold uppercase text-[var(--text-muted)] mb-1">Duration (min)</label>
-                              <input 
-                                  type="number" 
-                                  value={eventFormData.duration || ''}
-                                  onChange={e => {
-                                      const val = parseInt(e.target.value);
-                                      setEventFormData({...eventFormData, duration: isNaN(val) ? undefined : val});
-                                  }}
-                                  className="w-full bg-[var(--bg-color)] border border-[var(--border)] rounded-lg p-3 text-[var(--text-main)] outline-none"
-                              />
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold uppercase text-[var(--text-muted)] mb-1">Alert</label>
-                              <select 
-                                  value={eventFormData.alertOffset}
-                                  onChange={e => setEventFormData({...eventFormData, alertOffset: parseInt(e.target.value)})}
-                                  className="w-full bg-[var(--bg-color)] border border-[var(--border)] rounded-lg p-3 text-[var(--text-main)] outline-none"
-                              >
-                                  <option value={0}>None</option>
-                                  <option value={15}>15 mins before</option>
-                                  <option value={30}>30 mins before</option>
-                                  <option value={60}>1 hour before</option>
-                                  <option value={1440}>1 day before</option>
-                              </select>
-                          </div>
-                      </div>
-
-                      <div>
-                          <label className="block text-xs font-bold uppercase text-[var(--text-muted)] mb-1">Recurrence</label>
-                          <select 
-                              value={eventFormData.recurrence?.type || 'none'}
-                              onChange={e => setEventFormData({
-                                  ...eventFormData, 
-                                  recurrence: { ...eventFormData.recurrence, type: e.target.value as any }
-                              })}
-                              className="w-full bg-[var(--bg-color)] border border-[var(--border)] rounded-lg p-3 text-[var(--text-main)] outline-none"
-                          >
-                              <option value="none">Does not repeat</option>
-                              <option value="daily">Daily</option>
-                              <option value="weekly">Weekly</option>
-                              <option value="monthly">Monthly</option>
-                          </select>
-                      </div>
-                  </div>
-                  <div className="p-4 border-t border-[var(--border)] bg-[var(--bg-color)] flex justify-between items-center sticky bottom-0 z-10">
-                      {editingEvent ? (
-                          <button 
-                              onClick={() => handleDeleteEvent(editingEvent)}
-                              className="text-red-500 hover:bg-red-500/10 p-2 rounded-lg flex items-center space-x-2"
-                          >
-                              <Trash2 size={18} /> <span className="text-sm font-bold">Delete</span>
-                          </button>
-                      ) : <div></div>}
-                      
-                      <div className="flex space-x-3">
-                          <button 
-                              onClick={() => setShowEventModal(false)}
-                              className="px-4 py-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] font-medium"
-                          >
-                              Cancel
-                          </button>
-                          <button 
-                              onClick={handleSaveEvent}
-                              className="px-6 py-2 rounded-xl bg-[var(--accent)] text-black font-bold hover:opacity-90"
-                          >
-                              Save
-                          </button>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      </div>
-      )}
 
       {/* Context Menu */}
       {contextMenu && (
@@ -726,27 +593,11 @@ export default function CalendarView() {
                                 onClick={() => openEditModal(contextMenu.data)}
                                 className="flex items-center space-x-2 p-2 hover:bg-[var(--bg-color)] rounded-lg text-xs text-left"
                             >
-                                <Edit2 size={14} /> <span>Edit Event</span>
-                            </button>
-                            <button 
-                                onClick={() => {
-                                    const newOffset = contextMenu.data.alertOffset ? 0 : 15;
-                                    const updated = { ...contextMenu.data, alertOffset: newOffset };
-                                    if (updated.isRecurringInstance) {
-                                        db.events.update(updated.originalId, updated);
-                                    } else {
-                                        db.events.update(updated.id, updated);
-                                    }
-                                    setContextMenu(null);
-                                    loadEvents();
-                                }}
-                                className="flex items-center space-x-2 p-2 hover:bg-[var(--bg-color)] rounded-lg text-xs text-left"
-                            >
-                                <Bell size={14} /> <span>{contextMenu.data.alertOffset ? 'Turn Off Alert' : 'Set Alert (15m)'}</span>
+                                <Edit2 size={14} /> <span>Edit</span>
                             </button>
                             <div className="border-t border-[var(--border)] my-1"></div>
                             <button 
-                                onClick={() => handleDeleteEvent(contextMenu.data)}
+                                onClick={() => handleDeleteEntry(contextMenu.data)}
                                 className="flex items-center space-x-2 p-2 hover:bg-red-500/10 text-red-500 rounded-lg text-xs text-left"
                             >
                                 <Trash2 size={14} /> <span>Delete</span>
@@ -769,11 +620,15 @@ export default function CalendarView() {
                             >
                                 <Eye size={14} /> <span>View Day</span>
                             </button>
+
                             <button 
-                                onClick={() => openCreateModal(contextMenu.data)}
+                                onClick={() => {
+                                    window.dispatchEvent(new CustomEvent('organizer:create-task', { detail: { date: contextMenu.data.getTime() } }));
+                                    setContextMenu(null);
+                                }}
                                 className="flex items-center space-x-2 p-2 hover:bg-[var(--bg-color)] rounded-lg text-xs text-left"
                             >
-                                <Plus size={14} /> <span>Add Event</span>
+                                <CheckSquare size={14} /> <span>Add Task</span>
                             </button>
                             <div className="border-t border-[var(--border)] my-1"></div>
                             <button 

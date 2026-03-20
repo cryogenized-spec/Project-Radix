@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Key, Save, Shield, Check, Play, Settings2, MessageSquare, Lock, BrainCircuit, Mic, RefreshCw, Bot, Unlock, Undo, Redo, Zap, Mail } from 'lucide-react';
+import { Key, Save, Shield, Check, Play, Settings2, MessageSquare, Lock, BrainCircuit, Mic, RefreshCw, Bot, Unlock, Undo, Redo, Zap, Mail, Image as ImageIcon } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import { getSetting, setSetting, getAgents, addAgent } from '../lib/db';
 import { GoogleGenAI } from '@google/genai';
 import { encryptApiKey, decryptApiKey } from '../lib/apiKeyCrypto';
 import { ModelSelector } from './ModelSelector';
 import { LOCAL_MODELS } from '../lib/ModelService';
+import LocalAIModelsConfig from './LocalAIModelsConfig';
 
 const PROVIDERS = ['Anthropic', 'DeepSeek', 'Google', 'Moonshot', 'OpenAI', 'xAI', 'Local (Gemini Nano)', 'Local Intelligence'];
 const STT_PROVIDERS = ['Local (Gemini Nano)', 'OpenAI (ChatGPT 4o)', 'OpenAI (ChatGPT 4o mini)', 'Google Cloud', 'Native Device'];
@@ -107,15 +108,60 @@ export default function ApiLockbox() {
       'Balanced': { temperature: 0.7, topP: 0.9, thinkingBudget: 80 },
       'Creative': { temperature: 1.2, topP: 0.95, thinkingBudget: 50 },
       'Concise': { temperature: 0.5, topP: 0.7, thinkingBudget: 40 },
-      'Verbose': { temperature: 0.9, topP: 0.99, thinkingBudget: 90 },
-      'Creative Roleplay': { temperature: 1.5, topP: 0.99, thinkingBudget: 30 }
+      'Verbose': { temperature: 0.9, topP: 0.99, thinkingBudget: 90 }
   };
+
+  const roleplayProfiles = {
+      'Creative Roleplay': { temperature: 1.5, topP: 0.99, thinkingBudget: 30 },
+      'Immersive Roleplay': { temperature: 1.8, topP: 1.0, thinkingBudget: 20 },
+      'Structured Roleplay': { temperature: 1.1, topP: 0.9, thinkingBudget: 60 }
+  };
+
+  const [roleplayTuningEnabled, setRoleplayTuningEnabled] = useState({ public: false, private: false });
+
+  const getSelectedTemplate = (tab: 'public' | 'private') => {
+      const current = settings[tab];
+      for (const [name, t] of Object.entries(templates)) {
+          if (t.temperature === current.temperature && t.topP === current.topP && t.thinkingBudget === current.thinkingBudget) {
+              return name;
+          }
+      }
+      return "";
+  };
+
+  const getSelectedRoleplayProfile = (tab: 'public' | 'private') => {
+      const current = settings[tab];
+      for (const [name, p] of Object.entries(roleplayProfiles)) {
+          if (p.temperature === current.temperature && p.topP === current.topP && p.thinkingBudget === current.thinkingBudget) {
+              return name;
+          }
+      }
+      return "";
+  };
+
+  useEffect(() => {
+    const isPublicRoleplay = getSelectedRoleplayProfile('public') !== "";
+    const isPrivateRoleplay = getSelectedRoleplayProfile('private') !== "";
+    
+    setRoleplayTuningEnabled(prev => ({
+      public: prev.public || isPublicRoleplay,
+      private: prev.private || isPrivateRoleplay
+    }));
+  }, [settings]);
 
   const applyTemplate = (name: keyof typeof templates) => {
       const template = templates[name];
       setSettings(prev => ({
           ...prev,
           [activeTab]: { ...prev[activeTab], ...template }
+      }));
+  };
+
+  const applyRoleplayProfile = (name: keyof typeof roleplayProfiles) => {
+      const profile = roleplayProfiles[name];
+      setSettings(prev => ({
+          ...prev,
+          [activeTab]: { ...prev[activeTab], ...profile }
       }));
   };
 
@@ -595,10 +641,46 @@ export default function ApiLockbox() {
             <button onClick={() => setActiveTab('private')} className={`px-3 py-1 text-xs rounded-lg ${activeTab === 'private' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-color)]'}`}>Private</button>
         </div>
         <div className="mb-4">
-            <select onChange={(e) => applyTemplate(e.target.value as any)} className="w-full radix-input p-2 text-xs rounded-lg">
-                <option value="">Apply Template...</option>
+            <select value={getSelectedTemplate(activeTab)} onChange={(e) => applyTemplate(e.target.value as any)} className="w-full radix-input p-2 text-xs rounded-lg">
+                <option value="" disabled>Apply {activeTab === 'public' ? 'Public' : 'Private'} Template...</option>
                 {Object.keys(templates).map(t => <option key={t} value={t}>{t}</option>)}
             </select>
+        </div>
+
+        <div className="mb-4 p-3 border border-[var(--border)] rounded-xl bg-[var(--bg-color)]">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-xs font-bold text-[var(--text-main)]">Roleplay Tuning</h3>
+              <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Generate more creative narrative content</p>
+            </div>
+            <button
+              onClick={() => {
+                const isEnabling = !roleplayTuningEnabled[activeTab];
+                setRoleplayTuningEnabled(prev => ({ ...prev, [activeTab]: isEnabling }));
+                if (isEnabling) {
+                  applyRoleplayProfile('Creative Roleplay');
+                } else {
+                  applyTemplate('Balanced');
+                }
+              }}
+              className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${roleplayTuningEnabled[activeTab] ? 'bg-[var(--accent)]' : 'bg-[var(--border)]'}`}
+            >
+              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${roleplayTuningEnabled[activeTab] ? 'left-6' : 'left-1'}`} />
+            </button>
+          </div>
+          
+          {roleplayTuningEnabled[activeTab] && (
+            <div className="mt-3">
+              <select 
+                value={getSelectedRoleplayProfile(activeTab)} 
+                onChange={(e) => applyRoleplayProfile(e.target.value as any)} 
+                className="w-full radix-input p-2 text-xs rounded-lg"
+              >
+                <option value="" disabled>Select {activeTab === 'public' ? 'Public' : 'Private'} Roleplay Profile...</option>
+                {Object.keys(roleplayProfiles).map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          )}
         </div>
         
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 ${isLocked ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -791,6 +873,11 @@ export default function ApiLockbox() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Local AI Models Settings */}
+      <section className="space-y-3 sm:space-y-4 radix-panel p-3 sm:p-4 rounded-xl">
+        <LocalAIModelsConfig />
       </section>
 
       {/* Email Dispatch Settings */}

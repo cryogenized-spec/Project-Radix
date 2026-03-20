@@ -74,11 +74,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelectModel, sel
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-bold uppercase tracking-widest text-[var(--text-main)] flex items-center gap-2">
-          <HardDrive size={16} className="text-[var(--accent)]" /> Local Intelligence
+      <div className="flex items-center justify-between mb-2 gap-2">
+        <h3 className="text-sm font-bold uppercase tracking-widest text-[var(--text-main)] flex items-center gap-2 leading-tight">
+          <HardDrive size={16} className="text-[var(--accent)] shrink-0" /> Local Intelligence
         </h3>
-        <span className={`text-xs px-2 py-1 rounded-full border ${hasWebGPU ? 'border-green-500/30 text-green-500 bg-green-500/10' : 'border-yellow-500/30 text-yellow-500 bg-yellow-500/10'}`}>
+        <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border shrink-0 whitespace-nowrap ${hasWebGPU ? 'border-green-500/30 text-green-500 bg-green-500/10' : 'border-yellow-500/30 text-yellow-500 bg-yellow-500/10'}`}>
           {hasWebGPU ? 'WebGPU Active' : 'WASM Fallback'}
         </span>
       </div>

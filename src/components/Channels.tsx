@@ -7,8 +7,8 @@ import {
   Compass, MessageCircle, Github, BookOpen, Share2
 } from 'lucide-react';
 import { 
-  addFolder, getFolders, deleteFolder, 
-  addChannel, getChannels, deleteChannel,
+  addFolder, getFolders, deleteFolder, updateFolder,
+  addChannel, getChannels, deleteChannel, updateChannel,
   addFeed, getFeeds, deleteFeed,
   addChannelerPrompt, getChannelerPrompts, deleteChannelerPrompt,
   getSetting, getAgents
@@ -84,6 +84,36 @@ export function ChannelList({ onSelectChannel, activeChannelId }: { onSelectChan
     if (!name) return;
     await addFolder({ id: crypto.randomUUID(), name });
     loadData();
+  };
+
+  const handleRenameFolder = async (folder: Folder) => {
+    const newName = prompt('Rename Folder:', folder.name);
+    if (!newName || newName === folder.name) return;
+    await updateFolder(folder.id, { name: newName });
+    loadData();
+  };
+
+  const handleDeleteFolder = async (folder: Folder) => {
+    if (confirm(`Are you sure you want to delete the folder "${folder.name}"? All channels inside will be moved to the root.`)) {
+      const channelsInFolder = channels.filter(c => c.folderId === folder.id);
+      for (const channel of channelsInFolder) {
+        await updateChannel(channel.id, { folderId: 'root' });
+      }
+      await deleteFolder(folder.id);
+      loadData();
+    }
+  };
+
+  const handleMoveChannel = async (channel: Channel, newFolderId: string) => {
+    await updateChannel(channel.id, { folderId: newFolderId });
+    loadData();
+  };
+
+  const handleDeleteChannel = async (channel: Channel) => {
+    if (confirm(`Are you sure you want to delete the feed "${channel.name}"?`)) {
+      await deleteChannel(channel.id);
+      loadData();
+    }
   };
 
   const toggleFolder = (id: string) => {
@@ -175,6 +205,17 @@ export function ChannelList({ onSelectChannel, activeChannelId }: { onSelectChan
 
       {/* List */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        <div className="flex justify-between items-center p-2 mb-2">
+          <span className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">Feeds</span>
+          <button 
+            onClick={handleCreateFolder}
+            className="text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors flex items-center text-xs"
+            title="Create Folder"
+          >
+            <Folder size={14} className="mr-1" /> New
+          </button>
+        </div>
+
         {folders.length === 0 && channels.length === 0 && (
           <div className="p-4 text-center space-y-4">
             <button 
@@ -198,12 +239,22 @@ export function ChannelList({ onSelectChannel, activeChannelId }: { onSelectChan
                 <Folder size={14} className="text-[var(--text-muted)]" />
                 <span>{folder.name}</span>
               </div>
-              <button 
-                onClick={(e) => { e.stopPropagation(); handleCreateFolder(); /* Placeholder for folder actions */ }}
-                className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--accent)]"
-              >
-                <Plus size={14} />
-              </button>
+              <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleRenameFolder(folder); }}
+                  className="text-[var(--text-muted)] hover:text-[var(--accent)] p-1"
+                  title="Rename Folder"
+                >
+                  <Edit3 size={12} />
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder); }}
+                  className="text-[var(--text-muted)] hover:text-red-500 p-1"
+                  title="Delete Folder"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
             </div>
             
             {expandedFolders[folder.id] && (
@@ -212,14 +263,44 @@ export function ChannelList({ onSelectChannel, activeChannelId }: { onSelectChan
                   <div 
                     key={channel.id}
                     onClick={() => onSelectChannel(channel)}
-                    className={`p-2 rounded-lg cursor-pointer text-sm flex items-center space-x-2 ${activeChannelId === channel.id ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'hover:bg-[var(--bg-color)]'}`}
+                    className={`p-2 rounded-lg cursor-pointer text-sm flex items-center justify-between group ${activeChannelId === channel.id ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'hover:bg-[var(--bg-color)]'}`}
                   >
-                    {channel.type === 'telegram' && <Icon icon="logos:telegram" width="12" height="12" />}
-                    {channel.type === 'rss' && ((channel.sourceUrl.includes('nitter') || channel.sourceUrl.includes('x.com') || channel.sourceUrl.includes('twitter.com')) ? <Icon icon="ri:twitter-x-fill" width="12" height="12" /> : <Rss size={12} />)}
-                    {channel.type === 'substack' && <Icon icon="simple-icons:substack" width="12" height="12" className="text-[#FF6719]" />}
-                    {channel.type === 'gopher' && <Terminal size={12} />}
-                    {channel.type === 'discovery' && (channel.name.toLowerCase().includes('x') || channel.name.toLowerCase().includes('twitter') ? <Icon icon="ri:twitter-x-fill" width="12" height="12" className="text-[var(--accent)]" /> : <Compass size={12} className="text-[var(--accent)]" />)}
-                    <span className="truncate">{channel.name}</span>
+                    <div className="flex items-center space-x-2 overflow-hidden">
+                      {channel.type === 'telegram' && <Icon icon="logos:telegram" width="12" height="12" className="flex-shrink-0" />}
+                      {channel.type === 'rss' && ((channel.sourceUrl.includes('nitter') || channel.sourceUrl.includes('x.com') || channel.sourceUrl.includes('twitter.com')) ? <Icon icon="ri:twitter-x-fill" width="12" height="12" className="flex-shrink-0" /> : <Rss size={12} className="flex-shrink-0" />)}
+                      {channel.type === 'substack' && <Icon icon="simple-icons:substack" width="12" height="12" className="text-[#FF6719] flex-shrink-0" />}
+                      {channel.type === 'gopher' && <Terminal size={12} className="flex-shrink-0" />}
+                      {channel.type === 'discovery' && (channel.name.toLowerCase().includes('x') || channel.name.toLowerCase().includes('twitter') ? <Icon icon="ri:twitter-x-fill" width="12" height="12" className="text-[var(--accent)] flex-shrink-0" /> : <Compass size={12} className="text-[var(--accent)] flex-shrink-0" />)}
+                      <span className="truncate">{channel.name}</span>
+                    </div>
+                    <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 flex-shrink-0">
+                      <select 
+                        className="bg-transparent text-[10px] text-[var(--text-muted)] border border-[var(--border)] rounded px-1 py-0.5 outline-none"
+                        title="Move to folder"
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          if (e.target.value) {
+                            handleMoveChannel(channel, e.target.value);
+                            e.target.value = '';
+                          }
+                        }}
+                        value=""
+                      >
+                        <option value="" disabled>Move...</option>
+                        <option value="root">Root</option>
+                        {folders.filter(f => f.id !== folder.id).map(f => (
+                          <option key={f.id} value={f.id}>{f.name}</option>
+                        ))}
+                      </select>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDeleteChannel(channel); }}
+                        className="text-[var(--text-muted)] hover:text-red-500 p-1"
+                        title="Delete Feed"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -231,14 +312,43 @@ export function ChannelList({ onSelectChannel, activeChannelId }: { onSelectChan
           <div 
             key={channel.id}
             onClick={() => onSelectChannel(channel)}
-            className={`p-2 rounded-lg cursor-pointer text-sm flex items-center space-x-2 ${activeChannelId === channel.id ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'hover:bg-[var(--bg-color)]'}`}
+            className={`p-2 rounded-lg cursor-pointer text-sm flex items-center justify-between group ${activeChannelId === channel.id ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'hover:bg-[var(--bg-color)]'}`}
           >
-            {channel.type === 'telegram' && <Icon icon="logos:telegram" width="12" height="12" />}
-            {channel.type === 'rss' && ((channel.sourceUrl.includes('nitter') || channel.sourceUrl.includes('x.com') || channel.sourceUrl.includes('twitter.com')) ? <Icon icon="ri:twitter-x-fill" width="12" height="12" /> : <Rss size={12} />)}
-            {channel.type === 'substack' && <Icon icon="simple-icons:substack" width="12" height="12" className="text-[#FF6719]" />}
-            {channel.type === 'gopher' && <Terminal size={12} />}
-            {channel.type === 'discovery' && (channel.name.toLowerCase().includes('x') || channel.name.toLowerCase().includes('twitter') ? <Icon icon="ri:twitter-x-fill" width="12" height="12" className="text-[var(--accent)]" /> : <Compass size={12} className="text-[var(--accent)]" />)}
-            <span className="truncate">{channel.name}</span>
+            <div className="flex items-center space-x-2 overflow-hidden">
+              {channel.type === 'telegram' && <Icon icon="logos:telegram" width="12" height="12" className="flex-shrink-0" />}
+              {channel.type === 'rss' && ((channel.sourceUrl.includes('nitter') || channel.sourceUrl.includes('x.com') || channel.sourceUrl.includes('twitter.com')) ? <Icon icon="ri:twitter-x-fill" width="12" height="12" className="flex-shrink-0" /> : <Rss size={12} className="flex-shrink-0" />)}
+              {channel.type === 'substack' && <Icon icon="simple-icons:substack" width="12" height="12" className="text-[#FF6719] flex-shrink-0" />}
+              {channel.type === 'gopher' && <Terminal size={12} className="flex-shrink-0" />}
+              {channel.type === 'discovery' && (channel.name.toLowerCase().includes('x') || channel.name.toLowerCase().includes('twitter') ? <Icon icon="ri:twitter-x-fill" width="12" height="12" className="text-[var(--accent)] flex-shrink-0" /> : <Compass size={12} className="text-[var(--accent)] flex-shrink-0" />)}
+              <span className="truncate">{channel.name}</span>
+            </div>
+            <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 flex-shrink-0">
+              <select 
+                className="bg-transparent text-[10px] text-[var(--text-muted)] border border-[var(--border)] rounded px-1 py-0.5 outline-none"
+                title="Move to folder"
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  if (e.target.value) {
+                    handleMoveChannel(channel, e.target.value);
+                    e.target.value = '';
+                  }
+                }}
+                value=""
+              >
+                <option value="" disabled>Move...</option>
+                {folders.map(f => (
+                  <option key={f.id} value={f.id}>{f.name}</option>
+                ))}
+              </select>
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleDeleteChannel(channel); }}
+                className="text-[var(--text-muted)] hover:text-red-500 p-1"
+                title="Delete Feed"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -671,17 +781,10 @@ function DiscoverySearchWindow({ channel, onBack }: { channel: Channel, onBack?:
       }
     }
 
-    const folderId = crypto.randomUUID();
-    const folderName = result.title || 'New Feed';
-    await addFolder({
-      id: folderId,
-      name: folderName
-    });
-
     await addChannel({
       id: crypto.randomUUID(),
-      name: folderName,
-      folderId: folderId,
+      name: result.title || 'New Feed',
+      folderId: 'root',
       type,
       sourceUrl: finalUrl
     });
@@ -968,6 +1071,8 @@ export function ChannelView({ channel, onBack }: { channel: Channel, onBack?: ()
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentGopherUrl, setCurrentGopherUrl] = useState<string | null>(null);
   const [gopherHistory, setGopherHistory] = useState<string[]>([]);
+  const [textSize, setTextSize] = useState(14);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     const handler = registerBackHandler(() => {
@@ -1226,13 +1331,47 @@ export function ChannelView({ channel, onBack }: { channel: Channel, onBack?: ()
             </div>
           </div>
           
-          <button 
-            onClick={() => setShowChanneler(!showChanneler)}
-            className={`p-2 rounded-lg transition-colors ${showChanneler ? 'bg-green-500/20 text-green-500' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
-            title="Toggle Channeler AI"
-          >
-            <Bot size={20} />
-          </button>
+          <div className="flex items-center space-x-2 relative">
+            <button 
+              onClick={() => setShowSettings(!showSettings)}
+              className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-[var(--bg-color)] text-[var(--text-main)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+              title="Feed Settings"
+            >
+              <SettingsIcon size={20} />
+            </button>
+            
+            {showSettings && (
+              <div className="absolute right-12 top-0 mt-10 w-64 bg-[var(--panel-bg)] border border-[var(--border)] rounded-xl shadow-xl z-30 p-4">
+                <h3 className="text-sm font-bold mb-3 flex items-center">
+                  <SettingsIcon size={14} className="mr-2" /> Feed Settings
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-[var(--text-muted)]">Text Size</span>
+                      <span className="font-mono">{textSize}px</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="8" 
+                      max="20" 
+                      value={textSize}
+                      onChange={(e) => setTextSize(parseInt(e.target.value))}
+                      className="w-full accent-[var(--accent)]"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <button 
+              onClick={() => setShowChanneler(!showChanneler)}
+              className={`p-2 rounded-lg transition-colors ${showChanneler ? 'bg-green-500/20 text-green-500' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+              title="Toggle Channeler AI"
+            >
+              <Bot size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -1243,7 +1382,7 @@ export function ChannelView({ channel, onBack }: { channel: Channel, onBack?: ()
               <p>Connecting to stream...</p>
             </div>
           ) : (
-            <div className="prose prose-invert max-w-none">
+            <div className="prose prose-invert max-w-none" style={{ fontSize: `${textSize}px` }}>
               <ReactMarkdown 
                 remarkPlugins={[remarkGfm]}
                 components={{

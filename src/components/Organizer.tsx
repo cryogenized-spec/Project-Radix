@@ -56,7 +56,32 @@ export default React.memo(function Organizer() {
       }
     };
     window.addEventListener('radix:open-link', handleOpenLink);
-    return () => window.removeEventListener('radix:open-link', handleOpenLink);
+
+    const handleCreateTask = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const initialDate = customEvent.detail?.date || Date.now();
+      setEditingTask({
+        title: '',
+        completed: false,
+        orderIndex: 0,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        dueDate: initialDate
+      });
+    };
+    window.addEventListener('organizer:create-task', handleCreateTask);
+
+    const handleEditTask = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setEditingTask(customEvent.detail);
+    };
+    window.addEventListener('organizer:edit-task', handleEditTask);
+
+    return () => {
+      window.removeEventListener('radix:open-link', handleOpenLink);
+      window.removeEventListener('organizer:create-task', handleCreateTask);
+      window.removeEventListener('organizer:edit-task', handleEditTask);
+    };
   }, []);
 
   const loadSettings = async () => {
@@ -101,9 +126,14 @@ export default React.memo(function Organizer() {
   };
 
   const handleSaveTask = async (updatedTask: Task) => {
+    if (updatedTask.linkedEventId) {
+      await organizerDb.events.delete(updatedTask.linkedEventId);
+      updatedTask.linkedEventId = undefined; // Remove the link after migration
+    }
     await organizerDb.tasks.put(updatedTask);
     setEditingTask(null);
     showNotification('Task updated!');
+    window.dispatchEvent(new Event('organizer:refresh'));
   };
 
   const renderView = () => {

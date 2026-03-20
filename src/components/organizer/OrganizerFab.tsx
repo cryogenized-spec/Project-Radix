@@ -20,9 +20,32 @@ export default function OrganizerFab({ onNotification, onNavigate }: OrganizerFa
   const [inputMode, setInputMode] = useState<'voice' | 'text'>('text');
   const [inputValue, setInputValue] = useState('');
   const [lastUndoOperations, setLastUndoOperations] = useState<any[]>([]);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      // If the visual viewport height is significantly smaller than window innerHeight,
+      // or if it shrinks by a large amount suddenly, the keyboard is likely open.
+      if (window.visualViewport) {
+        const isKeyboard = window.visualViewport.height < window.innerHeight * 0.75;
+        setIsKeyboardOpen(isKeyboard);
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+      handleResize(); // Initial check
+    }
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+      }
+    };
+  }, []);
 
   const handleFabClick = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -301,7 +324,7 @@ export default function OrganizerFab({ onNotification, onNavigate }: OrganizerFa
   return (
     <>
       {/* FAB - Centered using fixed positioning relative to viewport width */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center">
+      <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center justify-center transition-opacity duration-200 ${isKeyboardOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         {/* Petals */}
         <AnimatePresence>
           {isMenuOpen && (
@@ -348,12 +371,9 @@ export default function OrganizerFab({ onNotification, onNavigate }: OrganizerFa
                 exit={{ opacity: 0, scale: 0, x: 0, y: 0 }}
                 transition={{ duration: 0.15, ease: "easeOut", delay: 0.06 }}
                 onClick={async () => {
-                  // @ts-ignore
-                  const id = await organizerDb.tasks.add({ title: 'New Task', completed: false, createdAt: Date.now(), updatedAt: Date.now(), orderIndex: 0 });
                   setIsMenuOpen(false);
-                  if (onNotification) onNotification("Created new task");
                   if (onNavigate) onNavigate('tasks');
-                  window.dispatchEvent(new CustomEvent('organizer:open-task', { detail: { id } }));
+                  window.dispatchEvent(new CustomEvent('organizer:create-task', { detail: { date: Date.now() } }));
                 }}
                 className="absolute w-12 h-12 rounded-full bg-[var(--panel-bg)] border border-[var(--border)] shadow-lg flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--accent)] hover:border-[var(--accent)] transition-colors z-40"
                 title="Create Task"

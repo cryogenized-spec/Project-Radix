@@ -20,10 +20,11 @@ export class RadixDB extends Dexie {
   folders!: Table<any>;
   feeds!: Table<any>;
   channeler_prompts!: Table<any>;
+  ai_assets!: Table<any>;
 
   constructor() {
     super('radix_db');
-    this.version(8).stores({
+    this.version(9).stores({
       messages: 'id, timestamp, threadId, type, isAiChat', // Indexed fields
       settings: 'key',
       threads: 'id, lastMessageTime',
@@ -37,7 +38,8 @@ export class RadixDB extends Dexie {
       channels: 'id, name, folderId',
       folders: 'id, name',
       feeds: 'id, url, type, channelId',
-      channeler_prompts: 'id, name'
+      channeler_prompts: 'id, name',
+      ai_assets: 'id, modelName'
     });
 
     // Encryption Middleware
@@ -219,10 +221,12 @@ export const getDirectoryHandle = async () => (await db.directory_handles.get('r
 export const addFolder = async (folder: any) => db.folders.put(folder);
 export const getFolders = async () => db.folders.toArray();
 export const deleteFolder = async (id: string) => db.folders.delete(id);
+export const updateFolder = async (id: string, updates: any) => db.folders.update(id, updates);
 
 export const addChannel = async (channel: any) => db.channels.put(channel);
 export const getChannels = async () => db.channels.toArray();
 export const deleteChannel = async (id: string) => db.channels.delete(id);
+export const updateChannel = async (id: string, updates: any) => db.channels.update(id, updates);
 
 export const addFeed = async (feed: any) => db.feeds.put(feed);
 export const getFeeds = async () => db.feeds.toArray();

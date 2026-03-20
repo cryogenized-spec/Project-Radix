@@ -6,7 +6,7 @@ import { IndexeddbPersistence } from 'y-indexeddb';
 const ydoc = new Y.Doc();
 const provider = new IndexeddbPersistence('radix-hybrid-state', ydoc);
 
-export type FrameType = 'doc' | 'sheet' | 'canvas' | 'scanner' | 'task';
+export type FrameType = string;
 
 export interface RadixFrame {
   id: string;
@@ -21,11 +21,15 @@ export interface RadixFrame {
   parentId?: string; // For nesting frames
   linkedTaskId?: string;
   linkedEventId?: string;
+  isGhost?: boolean; // For AI suggestions
 }
 
 // Shared Y.js Data Structures
 const framesArray = ydoc.getArray<Y.Map<any>>('frames');
 const metadataMap = ydoc.getMap<any>('metadata');
+
+// Undo Manager
+export const radixUndoManager = new Y.UndoManager(framesArray);
 
 export function useRadixSync() {
   const [frames, setFrames] = useState<RadixFrame[]>([]);
@@ -65,6 +69,7 @@ export function useRadixSync() {
     if (frame.parentId) yMap.set('parentId', frame.parentId);
     if (frame.linkedTaskId) yMap.set('linkedTaskId', frame.linkedTaskId);
     if (frame.linkedEventId) yMap.set('linkedEventId', frame.linkedEventId);
+    if (frame.isGhost) yMap.set('isGhost', frame.isGhost);
 
     framesArray.push([yMap]);
     return id;
@@ -98,6 +103,26 @@ export function useRadixSync() {
     return frames.filter(f => f.type === 'task' || f.linkedTaskId);
   }, [frames]);
 
+  const undo = useCallback(() => radixUndoManager.undo(), []);
+  const redo = useCallback(() => radixUndoManager.redo(), []);
+  const clearGhosts = useCallback(() => {
+    ydoc.transact(() => {
+      const toDelete: number[] = [];
+      framesArray.toArray().forEach((map, index) => {
+        if (map.get('isGhost')) toDelete.push(index);
+      });
+      // Delete in reverse order to not mess up indices
+      toDelete.reverse().forEach(index => framesArray.delete(index, 1));
+    });
+  }, []);
+  const commitGhosts = useCallback(() => {
+    ydoc.transact(() => {
+      framesArray.toArray().forEach(map => {
+        if (map.get('isGhost')) map.set('isGhost', false);
+      });
+    });
+  }, []);
+
   return {
     frames,
     isSynced,
@@ -106,6 +131,10 @@ export function useRadixSync() {
     deleteFrame,
     getFramesByDate,
     getTasks,
-    ydoc
+    ydoc,
+    undo,
+    redo,
+    clearGhosts,
+    commitGhosts
   };
 }
