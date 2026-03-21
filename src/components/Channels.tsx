@@ -809,7 +809,9 @@ function DiscoverySearchWindow({ channel, onBack }: { channel: Channel, onBack?:
     setAnalysisResult('');
     
     try {
-      const apiKey = await getSetting('apiKey');
+      const keys = await getSetting('api_keys') || {};
+      const { decryptApiKey } = await import('../lib/apiKeyCrypto');
+      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
       const agents = await getAgents();
       const feedAgent = agents.find(a => a.isFeed);
       
@@ -1249,7 +1251,9 @@ export function ChannelView({ channel, onBack }: { channel: Channel, onBack?: ()
     setAnalysisResult('');
     
     try {
-      const apiKey = await getSetting('apiKey');
+      const keys = await getSetting('api_keys') || {};
+      const { decryptApiKey } = await import('../lib/apiKeyCrypto');
+      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
       const agents = await getAgents();
       const feedAgent = agents.find(a => a.isFeed);
       

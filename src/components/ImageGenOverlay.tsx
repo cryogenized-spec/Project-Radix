@@ -72,6 +72,8 @@ export default function ImageGenOverlay({ initialPrompt = '', onClose, onGenerat
     try {
       const aiSettings = await getSetting('ai_settings') || {};
       const keys = await getSetting('api_keys') || {};
+      const { decryptApiKey } = await import('../lib/apiKeyCrypto');
+      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
       const currentPrompt = type === 'positive' ? prompt : negativePrompt;
       
       const instruction = type === 'positive' 
@@ -82,7 +84,7 @@ export default function ImageGenOverlay({ initialPrompt = '', onClose, onGenerat
         instruction,
         'participant',
         [],
-        { ...aiSettings, apiKey: keys['Google'], systemInstruction: '' }
+        { ...aiSettings, apiKey, systemInstruction: '' }
       );
 
       if (type === 'positive') {

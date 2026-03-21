@@ -4,6 +4,7 @@ import { Plus, Maximize, Minimize, Trash2, Edit2, FileText, Grid, Image as Image
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { GoogleGenAI } from '@google/genai';
+import { getSetting } from '../../lib/db';
 
 // --- Frame Components ---
 
@@ -219,7 +220,9 @@ export default function HybridNoteView() {
   const handleAIAssist = async (prompt: string) => {
     setIsThinking(true);
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
+      const { decryptApiKey } = await import('../../lib/apiKeyCrypto');
+      const keys = await getSetting('api_keys') || {};
+      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
       if (!apiKey) throw new Error("API Key missing");
       
       const ai = new GoogleGenAI({ apiKey });

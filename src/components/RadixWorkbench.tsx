@@ -75,7 +75,11 @@ export default function RadixWorkbench() {
     setAiFeedback('Analyzing request and calculating spatial routing...');
     
     try {
-      const ai = new GoogleGenAI({ apiKey: (import.meta as any).env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '' });
+      const { decryptApiKey } = await import('../lib/apiKeyCrypto');
+      const { getSetting } = await import('../lib/db');
+      const keys = await getSetting('api_keys') || {};
+      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : (import.meta as any).env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-3.1-pro-preview",
         contents: prompt,

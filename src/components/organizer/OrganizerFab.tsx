@@ -113,7 +113,10 @@ export default function OrganizerFab({ onNotification, onNavigate }: OrganizerFa
           
           // Get STT Key from Lockbox
           const sttKeys = await getSetting('stt_api_keys') || {};
-          const sttKey = sttKeys['Google Cloud'] || sttKeys['OpenAI (ChatGPT 4o)'] || process.env.GEMINI_API_KEY;
+          const { decryptApiKey } = await import('../../lib/apiKeyCrypto');
+          let sttKey = process.env.GEMINI_API_KEY;
+          if (sttKeys['Google Cloud']) sttKey = await decryptApiKey(sttKeys['Google Cloud']);
+          else if (sttKeys['OpenAI (ChatGPT 4o)']) sttKey = await decryptApiKey(sttKeys['OpenAI (ChatGPT 4o)']);
 
           // Transcribe
           const text = await transcribeAudio(base64Audio, mimeType, { apiKey: sttKey });
@@ -229,7 +232,10 @@ export default function OrganizerFab({ onNotification, onNavigate }: OrganizerFa
     try {
         // Use Agent's API Key if available, else global
         const globalKeys = await getSetting('api_keys') || {};
-        const apiKey = organizerAgent?.apiKey || globalKeys[organizerAgent?.provider || 'Google'] || process.env.GEMINI_API_KEY;
+        const { decryptApiKey } = await import('../../lib/apiKeyCrypto');
+        let apiKey = process.env.GEMINI_API_KEY;
+        if (organizerAgent?.apiKey) apiKey = await decryptApiKey(organizerAgent.apiKey);
+        else if (globalKeys[organizerAgent?.provider || 'Google']) apiKey = await decryptApiKey(globalKeys[organizerAgent?.provider || 'Google']);
 
         const historyContext = thread.map(msg => ({
             sender: msg.role === 'user' ? 'me' : 'bot',
@@ -238,7 +244,7 @@ export default function OrganizerFab({ onNotification, onNavigate }: OrganizerFa
 
         const response = await generateAIResponse(prompt, 'participant', historyContext, { 
             apiKey, 
-            model: organizerAgent?.model || 'gemini-3.1-flash-lite',
+            model: organizerAgent?.model || 'gemini-3.1-flash-lite-preview',
             publicPersona: "You are an executive function engine. Output JSON actions." // Override persona for this specific functional call to ensure JSON
         });
         

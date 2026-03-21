@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RadixIcon } from './RadixIcon';
 import { Send, Mic, Image as ImageIcon, Paperclip, Ghost, Bot, Square, Play, Maximize2, Minimize2, Activity, Video, FileText, Music, MapPin, Users, BarChart2, X, MoreVertical, Trash2, Reply, Share2, Languages, PenTool, CheckCircle, Plus, Hash, MessageSquare, Shield, Globe, Lock, ChevronLeft, ChevronRight, ScanLine, QrCode, Copy, ExternalLink, Headphones, UserPlus, Check, Loader2, Calendar, Wand2, Monitor, RotateCcw } from 'lucide-react';
-import { addMessage, getMessages, getSetting, setSetting, deleteMessage, addThread, getThreads, addGroup, getGroups, getContacts, addContact, getAgents, getStorageStats, evictOldMedia } from '../lib/db';
+import { addMessage, getMessages, getSetting, setSetting, deleteMessage, addThread, getThreads, addGroup, getGroups, getContacts, addContact, getAgents, getStorageStats, evictOldMedia, addWhatsappMessage, getWhatsappMessages, deleteWhatsappMessage } from '../lib/db';
 import { generateAIResponse, generateAIResponseStream, transcribeAudio, generateRewrite, generateFactCheck, generateTranslation, generateVisualAnalysis } from '../lib/gemini';
 import { EMAIL_TOOLS, emailToolsHandler } from '../lib/emailTools';
 import { p2pService } from '../lib/p2p';
@@ -22,7 +22,10 @@ import DraggableFab from './DraggableFab';
 import { ChannelList, ChannelView, Channel } from './Channels';
 import { useAvifEncoder } from '../hooks/useAvifEncoder';
 import { transcodeVideoToAV1 } from '../lib/transcode';
+import { Icon } from '@iconify/react';
 import ImageGenOverlay from './ImageGenOverlay';
+import ContactListOverlay from './ContactListOverlay';
+import { decryptApiKey } from '../lib/apiKeyCrypto';
 
 const MemoizedMessageList = React.memo(
   ({ renderMessages, deps }: { renderMessages: () => React.ReactNode, deps: any[] }) => {
@@ -122,7 +125,63 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
   const [menuPosition, setMenuPosition] = useState<{x: number, y: number} | null>(null);
 
   // New Chat / Contact State
-  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [showAskAiDrawer, setShowAskAiDrawer] = useState(false);
+  const [askAiPrompt, setAskAiPrompt] = useState('');
+  const [askAiResponse, setAskAiResponse] = useState('');
+  const [isAskAiProcessing, setIsAskAiProcessing] = useState(false);
+
+  const handleAskAi = async () => {
+    if (!askAiPrompt.trim() || isAskAiProcessing) return;
+    setIsAskAiProcessing(true);
+    
+    const recentMsgs = messages.slice(-10).map(m => `${m.sender === 'me' ? 'Me' : activeContext.contact.name}: ${m.text}`).join('\n');
+    
+    const prompt = `You are an AI assistant helping the user in a WhatsApp conversation with ${activeContext.contact.name}.
+Recent chat history:
+${recentMsgs}
+
+User's request: ${askAiPrompt}
+
+Provide tactical advice or draft a response. If drafting a response, provide ONLY the text to be sent.`;
+
+    try {
+      const response = await generateAIResponse(prompt, 'participant', [], aiSettings);
+      setAskAiResponse(response || '');
+    } catch (error) {
+      console.error("Ask AI failed:", error);
+      setAskAiResponse("Failed to generate response.");
+    } finally {
+      setIsAskAiProcessing(false);
+    }
+  };
+
+  const handleApplyAiDraft = async () => {
+    if (!askAiResponse) return;
+    setInput(askAiResponse);
+    setShowAskAiDrawer(false);
+    setAskAiPrompt('');
+    setAskAiResponse('');
+    
+    // Optionally save as a draft message
+    const newMsg = {
+      contactId: activeContext.contact.id,
+      textContent: askAiResponse,
+      timestamp: Date.now(),
+      type: 'ai_draft'
+    };
+    const id = await addWhatsappMessage(newMsg);
+    
+    setMessages(prev => [...prev, {
+      id: id,
+      text: newMsg.textContent,
+      sender: 'me',
+      timestamp: newMsg.timestamp,
+      type: 'text',
+      isAiChat: false,
+      isGhost: true
+    }]);
+  };
+  const [showContactListOverlay, setShowContactListOverlay] = useState(false);
   const [contacts, setContacts] = useState<any[]>([]);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [newContactName, setNewContactName] = useState('');
@@ -179,8 +238,8 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
         setShowMountModal(false);
         return true;
       }
-      if (showNewChatModal) {
-        setShowNewChatModal(false);
+      if (showContactListOverlay) {
+        setShowContactListOverlay(false);
         return true;
       }
       if (showGroupCreate) {
@@ -238,7 +297,7 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
     });
     return handler;
   }, [
-    showMountModal, showNewChatModal, showGroupCreate, showPollModal,
+    showMountModal, showContactListOverlay, showGroupCreate, showPollModal,
     showSelectionPreview, showAttachMenu, showInputMenu, showAiSubmenu,
     showTranslateMenu, showSmartChip, contextMenuMsgId, isSelectionMode,
     replyingTo, viewMode
@@ -468,11 +527,11 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
     
     // Determine STT Provider and Key
     const sttProvider = settings.sttProvider || 'Local (Gemini Nano)';
-    const sttKey = sttKeys[sttProvider] || '';
+    const sttKey = sttKeys[sttProvider] ? await decryptApiKey(sttKeys[sttProvider]) : '';
 
     setAiSettings({ 
       ...settings, 
-      apiKey: keys['Google'], // Default to Google for now as main chat AI
+      apiKey: keys['Google'] ? await decryptApiKey(keys['Google']) : '', // Default to Google for now as main chat AI
       sttApiKey: sttKey 
     });
     
@@ -562,6 +621,23 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
   };
 
   const loadMessages = async () => {
+    if (activeContext?.type === 'whatsapp') {
+      const msgs = await getWhatsappMessages(activeContext.contact.id);
+      // Map whatsapp messages to the format expected by the UI
+      const mapped = msgs.map(m => ({
+        id: m.id,
+        text: m.textContent,
+        sender: (m.type === 'outgoing_real' || m.type === 'ai_draft') ? 'me' : activeContext.contact.id,
+        timestamp: m.timestamp,
+        type: 'text',
+        isAiChat: false,
+        isGhost: m.type === 'ai_draft',
+        font: m.type === 'ai_interpolated' ? 'italic' : undefined,
+      }));
+      setMessages(mapped);
+      return;
+    }
+
     const msgs = await getMessages();
     let filtered = msgs;
 
@@ -718,17 +794,67 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
     
     if (mode === 'batch') {
         for (const mId of selectedMessageIds) {
-            await deleteMessage(mId);
+            if (activeContext?.type === 'whatsapp') {
+                await deleteWhatsappMessage(mId as any);
+            } else {
+                await deleteMessage(mId);
+            }
         }
         setMessages(prev => prev.filter(m => !selectedMessageIds.includes(m.id)));
         setSelectedMessageIds([]);
         setIsSelectionMode(false);
     } else if (mode === 'single' && targetId) {
-        await deleteMessage(targetId);
+        if (activeContext?.type === 'whatsapp') {
+            await deleteWhatsappMessage(targetId as any);
+        } else {
+            await deleteMessage(targetId);
+        }
         setMessages(prev => prev.filter(m => m.id !== targetId));
     }
     
     setDeleteConfirmation({ isOpen: false, count: 0, mode: 'batch' });
+  };
+
+  const handleGenerateWhatsappInterpolation = async () => {
+    if (activeContext?.type !== 'whatsapp') return;
+    
+    // Get recent messages for context
+    const recentMsgs = messages.slice(-10).map(m => `${m.sender === 'me' ? 'Me' : activeContext.contact.name}: ${m.text}`).join('\n');
+    
+    const prompt = `You are simulating the other person (${activeContext.contact.name}) in a WhatsApp conversation. 
+Based on the recent chat history, generate a plausible, realistic incoming message from them.
+Keep it natural, short, and conversational. Do not include prefixes like "${activeContext.contact.name}:".
+
+Recent history:
+${recentMsgs}
+
+Generate the next message from ${activeContext.contact.name}:`;
+
+    try {
+      const response = await generateAIResponse(prompt, 'participant', [], aiSettings);
+      if (response) {
+        const newMsg = {
+          contactId: activeContext.contact.id,
+          textContent: response,
+          timestamp: Date.now(),
+          type: 'ai_interpolated'
+        };
+        const id = await addWhatsappMessage(newMsg);
+        
+        setMessages(prev => [...prev, {
+          id: id,
+          text: newMsg.textContent,
+          sender: activeContext.contact.id,
+          timestamp: newMsg.timestamp,
+          type: 'text',
+          isAiChat: false,
+          isGhost: false,
+          font: 'italic'
+        }]);
+      }
+    } catch (error) {
+      console.error("Failed to generate interpolation:", error);
+    }
   };
 
   const handleSend = async () => {
@@ -736,6 +862,37 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
     const font = await getSetting('font') || 'JetBrains Mono';
     const fontColor = await getSetting('fontColor');
     const emoticonPack = await getSetting('emoticonPack') || 'Native OS';
+
+    if (activeContext?.type === 'whatsapp') {
+      const newMsg = {
+        contactId: activeContext.contact.id,
+        textContent: input,
+        timestamp: Date.now(),
+        type: 'outgoing_real'
+      };
+      const id = await addWhatsappMessage(newMsg);
+      
+      // Update UI
+      setMessages(prev => [...prev, {
+        id: id,
+        text: newMsg.textContent,
+        sender: 'me',
+        timestamp: newMsg.timestamp,
+        type: 'text',
+        isAiChat: false,
+        isGhost: false
+      }]);
+
+      setInput('');
+      if (inputRef.current) {
+        inputRef.current.style.height = 'auto';
+      }
+
+      // Open WhatsApp intent
+      const waUrl = `https://wa.me/${activeContext.contact.phoneNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(newMsg.textContent)}`;
+      window.open(waUrl, '_blank');
+      return;
+    }
 
     const newMsg = {
       id: crypto.randomUUID(),
@@ -821,6 +978,16 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
 
       // Inject Roleplay and Mood Instructions
       if (activeAgent) {
+          if (activeAgent.provider) currentAiSettings.provider = activeAgent.provider;
+          if (activeAgent.apiUrl) currentAiSettings.apiUrl = activeAgent.apiUrl;
+          if (activeAgent.model) currentAiSettings.model = activeAgent.model;
+          if (activeAgent.apiKey) {
+              try {
+                  currentAiSettings.apiKey = await decryptApiKey(activeAgent.apiKey);
+              } catch (e) {
+                  console.error("Failed to decrypt agent API key", e);
+              }
+          }
           let extraInstructions = "";
           
           if (activeAgent.roleplayEnabled && activeAgent.roleplayInstruction) {
@@ -983,6 +1150,16 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
     }
 
     if (activeAgent) {
+        if (activeAgent.provider) currentAiSettings.provider = activeAgent.provider;
+        if (activeAgent.apiUrl) currentAiSettings.apiUrl = activeAgent.apiUrl;
+        if (activeAgent.model) currentAiSettings.model = activeAgent.model;
+        if (activeAgent.apiKey) {
+            try {
+                currentAiSettings.apiKey = await decryptApiKey(activeAgent.apiKey);
+            } catch (e) {
+                console.error("Failed to decrypt agent API key", e);
+            }
+        }
         let extraInstructions = "";
         if (activeAgent.roleplayEnabled && activeAgent.roleplayInstruction) {
             extraInstructions += `\n\n[ROLEPLAY INSTRUCTIONS]\n${activeAgent.roleplayInstruction}`;
@@ -1109,6 +1286,16 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
         }
         
         if (activeAgent) {
+            if (activeAgent.provider) currentAiSettings.provider = activeAgent.provider;
+            if (activeAgent.apiUrl) currentAiSettings.apiUrl = activeAgent.apiUrl;
+            if (activeAgent.model) currentAiSettings.model = activeAgent.model;
+            if (activeAgent.apiKey) {
+                try {
+                    currentAiSettings.apiKey = await decryptApiKey(activeAgent.apiKey);
+                } catch (e) {
+                    console.error("Failed to decrypt agent API key", e);
+                }
+            }
             aiName = activeAgent.name;
             ghostName = `${activeAgent.name} (Ghost)`;
             const instruction = activeAgent.privatePersona || activeAgent.role || activeAgent.systemInstruction;
@@ -1865,11 +2052,7 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
   };
 
   const handleNewChat = async () => {
-    const loadedContacts = await getContacts();
-    setContacts(loadedContacts);
-    setShowNewChatModal(true);
-    setSelectedContacts([]);
-    setIsAddingContact(false);
+    setShowContactListOverlay(true);
   };
 
   const handleCreateContact = async () => {
@@ -1924,7 +2107,7 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
       setActiveContext(newGroup);
       setViewMode('chat');
     }
-    setShowNewChatModal(false);
+    setShowContactListOverlay(false);
   };
 
   const toggleContactSelection = (id: string) => {
@@ -2282,17 +2465,17 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
                 </button>
                 
                 <div className="flex items-center space-x-2 sm:space-x-3">
-                  {activeContext?.avatar ? (
-                    <img src={activeContext.avatar || null} alt="Avatar" className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover" />
+                  {(activeContext?.type === 'whatsapp' ? activeContext.contact.avatar : activeContext?.avatar) ? (
+                    <img src={(activeContext?.type === 'whatsapp' ? activeContext.contact.avatar : activeContext?.avatar) || null} alt="Avatar" className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover" />
                   ) : (
                     <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-[var(--accent)] bg-[var(--accent)]/10`}>
-                      <MessageSquare size={20} />
+                      {activeContext?.type === 'whatsapp' ? <Icon icon="logos:whatsapp-icon" className="w-5 h-5" /> : <MessageSquare size={20} />}
                     </div>
                   )}
                   <div>
-                    <h2 className="font-bold text-sm sm:text-base text-[var(--text-main)]">{activeContext?.name || 'Chat'}</h2>
+                    <h2 className="font-bold text-sm sm:text-base text-[var(--text-main)]">{activeContext?.type === 'whatsapp' ? activeContext.contact.name : (activeContext?.name || 'Chat')}</h2>
                     <div className="flex items-center space-x-2">
-                      {p2pStatus !== 'connected' && (
+                      {p2pStatus !== 'connected' && activeContext?.type !== 'whatsapp' && (
                           <div className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${p2pStatus === 'disconnected' ? 'bg-yellow-500/10 text-yellow-500' : 'bg-red-500/10 text-red-500'}`}>
                               {p2pStatus === 'disconnected' ? 'Reconnecting...' : 'P2P Error'}
                           </div>
@@ -2326,7 +2509,19 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
                     <X size={18} />
                   </button>
                 </div>
-              ) : null}
+              ) : (
+                <div className="flex items-center space-x-2">
+                  {activeContext?.type === 'whatsapp' && (
+                    <button 
+                      onClick={handleGenerateWhatsappInterpolation}
+                      className="p-2 rounded-lg hover:bg-[var(--bg-color)] text-[var(--accent)] transition-colors"
+                      title="Generate AI Incoming Message"
+                    >
+                      <Icon icon="mdi:brain" className="w-6 h-6" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -3924,7 +4119,72 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
                 )}
               </div>
             </div>
+
+            {/* Ask AI Button for WhatsApp */}
+            {activeContext?.type === 'whatsapp' && !isExpanded && (
+              <div className="mt-2 flex justify-center">
+                <button
+                  onClick={() => setShowAskAiDrawer(true)}
+                  className="w-full max-w-sm py-2 px-4 rounded-xl bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20 font-bold uppercase tracking-wider text-xs flex items-center justify-center space-x-2 hover:bg-[var(--accent)]/20 transition-colors"
+                >
+                  <Icon icon="mdi:brain" className="w-4 h-4" />
+                  <span>Ask AI</span>
+                </button>
+              </div>
+            )}
           </div>
+
+          {/* Ask AI Drawer */}
+          {showAskAiDrawer && (
+            <div className="absolute inset-x-0 bottom-0 z-50 bg-[var(--bg-color)] border-t border-[var(--border)] rounded-t-3xl shadow-2xl p-4 animate-in slide-in-from-bottom flex flex-col max-h-[80vh]">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center space-x-2 text-[var(--accent)]">
+                  <Icon icon="mdi:brain" className="w-5 h-5" />
+                  <h3 className="font-bold uppercase tracking-widest text-sm">Ask AI</h3>
+                </div>
+                <button onClick={() => setShowAskAiDrawer(false)} className="p-2 hover:bg-[var(--panel-bg)] rounded-full">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+                {askAiResponse && (
+                  <div className="p-3 rounded-xl bg-[var(--panel-bg)] border border-[var(--border)] text-sm whitespace-pre-wrap">
+                    {askAiResponse}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <textarea
+                  value={askAiPrompt}
+                  onChange={e => setAskAiPrompt(e.target.value)}
+                  placeholder="Ask for advice or a draft..."
+                  className="w-full radix-input p-3 rounded-xl resize-none text-sm min-h-[80px]"
+                  disabled={isAskAiProcessing}
+                />
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleAskAi}
+                    disabled={!askAiPrompt.trim() || isAskAiProcessing}
+                    className="flex-1 py-3 rounded-xl bg-[var(--accent)] text-black font-bold uppercase tracking-wider text-xs disabled:opacity-50 flex items-center justify-center space-x-2"
+                  >
+                    {isAskAiProcessing ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
+                    <span>Generate</span>
+                  </button>
+                  {askAiResponse && (
+                    <button
+                      onClick={handleApplyAiDraft}
+                      className="flex-1 py-3 rounded-xl bg-[var(--panel-bg)] border border-[var(--border)] font-bold uppercase tracking-wider text-xs hover:bg-[var(--bg-color)] flex items-center justify-center space-x-2"
+                    >
+                      <Check size={16} />
+                      <span>Apply Draft</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Recording Overlay for Cancel on Outside Tap */}
           {isRecording && (
@@ -3965,127 +4225,42 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
           />
       )}
 
-      {/* New Chat Modal */}
-      {showNewChatModal && (
-        <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[var(--bg-color)] border border-[var(--border)] rounded-2xl p-6 space-y-4 animate-in zoom-in-95 h-[80vh] flex flex-col">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold uppercase tracking-widest text-[var(--accent)]">New Chat</h3>
-              <button onClick={() => setShowNewChatModal(false)}><X size={20} /></button>
-            </div>
-            
-            <div className="p-4 bg-[var(--panel-bg)] rounded-xl border border-[var(--border)] space-y-2">
-                <div className="text-xs font-bold uppercase text-[var(--text-muted)]">My Connection ID</div>
-                <div className="flex items-center space-x-2">
-                    <code className="flex-1 p-2 bg-[var(--bg-color)] rounded border border-[var(--border)] text-xs font-mono truncate select-all">
-                        {myPeerId || 'Connecting...'}
-                    </code>
-                    <button 
-                        onClick={() => {
-                            navigator.clipboard.writeText(myPeerId);
-                            // Visual feedback could be added here
-                        }}
-                        className="p-2 hover:bg-[var(--bg-color)] rounded border border-[var(--border)]"
-                        title="Copy ID"
-                    >
-                        <Copy size={16} />
-                    </button>
-                </div>
-                <div className="text-[10px] text-[var(--text-muted)]">
-                    Share this ID with others so they can add you.
-                </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-2">
-              {contacts.length === 0 && !isAddingContact && (
-                <div className="text-center py-8 text-[var(--text-muted)]">
-                  <Users size={48} className="mx-auto mb-4 opacity-50" />
-                  <p>No contacts found.</p>
-                  <button onClick={() => setIsAddingContact(true)} className="mt-4 text-[var(--accent)] hover:underline">Add your first contact</button>
-                </div>
-              )}
-
-              {contacts.map(contact => (
-                <div 
-                  key={contact.id}
-                  onClick={() => toggleContactSelection(contact.id)}
-                  className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-colors ${
-                    selectedContacts.includes(contact.id) 
-                      ? 'bg-[var(--accent)]/10 border-[var(--accent)]' 
-                      : 'bg-[var(--panel-bg)] border-[var(--border)] hover:border-[var(--text-muted)]'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-[var(--bg-color)] flex items-center justify-center border border-[var(--border)]">
-                      {contact.avatar ? (
-                        <img src={contact.avatar || null} alt={contact.name} className="w-full h-full rounded-full object-cover" />
-                      ) : (
-                        <span className="font-bold text-[var(--accent)]">{contact.name[0]}</span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-sm truncate">{contact.name}</div>
-                      <div className="text-xs text-[var(--text-muted)] truncate">{contact.number}</div>
-                    </div>
-                  </div>
-                  {selectedContacts.includes(contact.id) && <CheckCircle size={16} className="text-[var(--accent)]" />}
-                </div>
-              ))}
-
-              {isAddingContact && (
-                <div className="p-4 bg-[var(--panel-bg)] rounded-xl border border-[var(--border)] space-y-3 animate-in fade-in">
-                  <h4 className="text-xs font-bold uppercase text-[var(--text-muted)]">Add New Contact</h4>
-                  <input 
-                    type="text" 
-                    placeholder="Name" 
-                    value={newContactName}
-                    onChange={e => setNewContactName(e.target.value)}
-                    className="w-full radix-input p-2 text-sm rounded-lg"
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="Number / ID" 
-                    value={newContactNumber}
-                    onChange={e => setNewContactNumber(e.target.value)}
-                    className="w-full radix-input p-2 text-sm rounded-lg"
-                  />
-                  <div className="flex space-x-2">
-                    <button onClick={handleCreateContact} className="flex-1 py-2 bg-[var(--accent)] text-black rounded-lg text-xs font-bold uppercase">Save</button>
-                    <button onClick={() => setIsAddingContact(false)} className="flex-1 py-2 bg-[var(--bg-color)] border border-[var(--border)] rounded-lg text-xs font-bold uppercase">Cancel</button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex space-x-2 pt-4 border-t border-[var(--border)]">
-              {!isAddingContact && (
-                <button 
-                  onClick={() => setIsAddingContact(true)}
-                  className="p-3 rounded-xl bg-[var(--bg-color)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)]"
-                >
-                  <UserPlus size={20} />
-                </button>
-              )}
-              <button 
-                onClick={handleStartNewChat}
-                disabled={selectedContacts.length === 0}
-                className="flex-1 p-3 rounded-xl bg-[var(--accent)] text-black font-bold uppercase tracking-wider hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-              >
-                {selectedContacts.length > 1 ? (
-                  <>
-                    <Users size={18} />
-                    <span>Create Group ({selectedContacts.length})</span>
-                  </>
-                ) : (
-                  <>
-                    <MessageSquare size={18} />
-                    <span>Start Chat</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Contact List Overlay */}
+      {showContactListOverlay && (
+        <ContactListOverlay
+          onClose={() => setShowContactListOverlay(false)}
+          onSelectRadix={async (contact) => {
+            setShowContactListOverlay(false);
+            // Check if a thread already exists with this contact
+            const existingThread = threads.find(t => t.type === 'private' && t.members.includes(contact.id));
+            if (existingThread) {
+              setActiveContext(existingThread);
+              setViewMode('chat');
+            } else {
+              const newThread = {
+                id: crypto.randomUUID(),
+                name: contact.name,
+                avatar: null, // Radix contacts might not have avatars yet
+                type: 'private',
+                members: ['me', contact.id],
+                createdAt: Date.now(),
+                previewText: 'Start a conversation'
+              };
+              await addThread(newThread);
+              setThreads(prev => [newThread, ...prev]);
+              setActiveContext(newThread);
+              setViewMode('chat');
+            }
+          }}
+          onSelectWhatsapp={(contact) => {
+            // Handle selecting a whatsapp contact
+            setShowContactListOverlay(false);
+            // Open shadow chat view
+            setActiveContext({ type: 'whatsapp', contact });
+            setViewMode('chat');
+          }}
+          myPeerId={myPeerId}
+        />
       )}
 
       {isScanning && (

@@ -27,11 +27,10 @@ const PROVIDER_ICONS: Record<string, string> = {
 };
 
 const GOOGLE_MODELS = [
-  'gemini-3.1-flash-lite',
+  'gemini-3.1-flash-lite-preview',
   'gemini-3-flash-preview',
   'gemini-3.1-pro-preview',
-  'gemini-3-pro',
-  'gemini-3-flash',
+  'gemini-3-pro-preview',
   'gemini-2.5-pro',
   'gemini-2.5-flash',
   'gemini-nano'
@@ -83,7 +82,7 @@ export default function ApiLockbox() {
   const [provider, setProvider] = useState('Google');
   const [apiKey, setApiKey] = useState('');
   const [apiUrl, setApiUrl] = useState(PROVIDER_API_PATHS['Google']);
-  const [model, setModel] = useState('gemini-3.1-flash-lite');
+  const [model, setModel] = useState('gemini-3.1-flash-lite-preview');
   
   const [sttProvider, setSttProvider] = useState('Local (Gemini Nano)');
   const [sttApiKey, setSttApiKey] = useState('');
@@ -305,7 +304,7 @@ export default function ApiLockbox() {
       const sttKeys = await getSetting('stt_api_keys') || {};
       setSttApiKey(await decryptApiKey(sttKeys[savedSttProvider] || ''));
 
-      setModel(aiSettings.model || 'gemini-3.1-flash-lite');
+      setModel(aiSettings.model || 'gemini-3.1-flash-lite-preview');
       setSettings(aiSettings.settings || {
           public: { temperature: aiSettings.temperature ?? 0.7, topP: aiSettings.topP ?? 0.9, thinkingBudget: aiSettings.thinkingBudget ?? 80 },
           private: { temperature: aiSettings.temperature ?? 0.7, topP: aiSettings.topP ?? 0.9, thinkingBudget: aiSettings.thinkingBudget ?? 80 }
@@ -339,7 +338,7 @@ export default function ApiLockbox() {
         setProvider(agent.provider || 'Google');
         setApiKey(await decryptApiKey(agent.apiKey || ''));
         setApiUrl(agent.apiUrl || PROVIDER_API_PATHS[agent.provider || 'Google'] || '');
-        setModel(agent.model || 'gemini-3.1-flash-lite');
+        setModel(agent.model || 'gemini-3.1-flash-lite-preview');
         setSettings(agent.settings || {
             public: { temperature: agent.temperature ?? 0.7, topP: agent.topP ?? 0.9, thinkingBudget: agent.thinkingBudget ?? 80 },
             private: { temperature: agent.temperature ?? 0.7, topP: agent.topP ?? 0.9, thinkingBudget: agent.thinkingBudget ?? 80 }
@@ -423,7 +422,7 @@ export default function ApiLockbox() {
         const ai = new GoogleGenAI({ apiKey });
         const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Request timed out')), 10000));
         await Promise.race([
-          ai.models.generateContent({ model: 'gemini-3.1-flash-lite', contents: 'test' }),
+          ai.models.generateContent({ model: 'gemini-3.1-flash-lite-preview', contents: 'test' }),
           timeout
         ]);
         textAiSuccess = true;

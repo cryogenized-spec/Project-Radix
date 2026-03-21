@@ -102,7 +102,9 @@ export default function SharedImageHandler({ sharedId, onClose }: SharedImageHan
     setIsProcessing(true);
     setError('');
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
+      const { decryptApiKey } = await import('../lib/apiKeyCrypto');
+      const keys = await getSetting('api_keys') || {};
+      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
       if (!apiKey) throw new Error('Gemini API key not found.');
 
       const ai = new GoogleGenAI({ apiKey });
@@ -207,7 +209,9 @@ export default function SharedImageHandler({ sharedId, onClose }: SharedImageHan
     setIsProcessing(true);
 
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
+      const { decryptApiKey } = await import('../lib/apiKeyCrypto');
+      const keys = await getSetting('api_keys') || {};
+      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
       if (!apiKey) throw new Error('Gemini API key not found.');
 
       const ai = new GoogleGenAI({ apiKey });

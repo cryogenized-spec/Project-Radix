@@ -293,7 +293,9 @@ export default function NotesView() {
     if (!editContent) return;
     setIsTransforming(true);
     try {
-      const apiKey = await getSetting('geminiApiKey');
+      const keys = await getSetting('api_keys') || {};
+      const { decryptApiKey } = await import('../../lib/apiKeyCrypto');
+      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
       const { markdown, suggestions } = await transformToMarkdown(editContent, { apiKey });
       setEditContent(markdown);
       setSuggestions(suggestions);
@@ -309,7 +311,9 @@ export default function NotesView() {
     setIsTransforming(true);
     setSuggestions([]);
     try {
-      const apiKey = await getSetting('geminiApiKey');
+      const keys = await getSetting('api_keys') || {};
+      const { decryptApiKey } = await import('../../lib/apiKeyCrypto');
+      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
       const { markdown, suggestions: newSuggestions } = await executePromptOnNote(editContent, prompt, { apiKey });
       setEditContent(markdown);
       setSuggestions(newSuggestions);
@@ -373,7 +377,9 @@ export default function NotesView() {
     setShowContextMenu(false);
     setIsTransforming(true);
     try {
-      const apiKey = await getSetting('geminiApiKey');
+      const keys = await getSetting('api_keys') || {};
+      const { decryptApiKey } = await import('../../lib/apiKeyCrypto');
+      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
       const aiPrompt = selection.text 
         ? `You are an expert editor. Modify or generate text based on the following instruction and the selected text. Return ONLY the new text, no conversational filler.\n\nInstruction: ${prompt}\n\nSelected Text:\n${selection.text}`
         : `You are an expert editor. Generate text based on the following instruction. Return ONLY the new text, no conversational filler.\n\nInstruction: ${prompt}`;

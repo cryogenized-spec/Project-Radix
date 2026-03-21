@@ -21,10 +21,13 @@ export class RadixDB extends Dexie {
   feeds!: Table<any>;
   channeler_prompts!: Table<any>;
   ai_assets!: Table<any>;
+  radixContacts!: Table<any>;
+  whatsappContacts!: Table<any>;
+  whatsappMessages!: Table<any>;
 
   constructor() {
     super('radix_db');
-    this.version(9).stores({
+    this.version(10).stores({
       messages: 'id, timestamp, threadId, type, isAiChat', // Indexed fields
       settings: 'key',
       threads: 'id, lastMessageTime',
@@ -39,7 +42,10 @@ export class RadixDB extends Dexie {
       folders: 'id, name',
       feeds: 'id, url, type, channelId',
       channeler_prompts: 'id, name',
-      ai_assets: 'id, modelName'
+      ai_assets: 'id, modelName',
+      radixContacts: '++id, name, publicKey, dateAdded',
+      whatsappContacts: '++id, name, phoneNumber, dateAdded',
+      whatsappMessages: '++id, contactId, textContent, timestamp, type'
     });
 
     // Encryption Middleware
@@ -189,6 +195,18 @@ export const getContacts = async () => db.contacts.toArray();
 export const addAgent = async (a: any) => db.agents.put(a);
 export const getAgents = async () => db.agents.toArray();
 export const deleteAgent = async (id: string) => db.agents.delete(id);
+
+export const addRadixContact = async (c: any) => db.radixContacts.put(c);
+export const getRadixContacts = async () => db.radixContacts.toArray();
+export const deleteRadixContact = async (id: number) => db.radixContacts.delete(id);
+
+export const addWhatsappContact = async (c: any) => db.whatsappContacts.put(c);
+export const getWhatsappContacts = async () => db.whatsappContacts.toArray();
+export const deleteWhatsappContact = async (id: number) => db.whatsappContacts.delete(id);
+
+export const addWhatsappMessage = async (m: any) => db.whatsappMessages.put(m);
+export const getWhatsappMessages = async (contactId: number) => db.whatsappMessages.where('contactId').equals(contactId).sortBy('timestamp');
+export const deleteWhatsappMessage = async (id: number) => db.whatsappMessages.delete(id);
 
 // Media Helpers
 export const saveMedia = async (blob: Blob, type: 'image' | 'video' | 'audio') => {

@@ -34,10 +34,12 @@ export default function ScannerTool() {
     
     try {
       const settings = await getSetting('ai_settings') || {};
-      const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
+      const keys = await getSetting('api_keys') || {};
+      const { decryptApiKey } = await import('../lib/apiKeyCrypto');
+      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
       
       const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI(settings.apiKey ? { apiKey: settings.apiKey } : { apiKey: process.env.GEMINI_API_KEY || '' });
+      const ai = new GoogleGenAI({ apiKey: apiKey || '' });
       
       const prompt = `
 Analyze the following image of a document and provide a full transcription in Markdown format.
@@ -52,7 +54,7 @@ User Instruction: ${instruction}
       };
 
       const res = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-image-preview',
+        model: 'gemini-3-flash-preview',
         contents: { parts: [imagePart, { text: prompt }] },
       });
 
