@@ -4,6 +4,7 @@ import { getAgents, addAgent, deleteAgent, getSetting } from '../lib/db';
 import { generateIdentity } from '../lib/crypto';
 import { extractFontFamily, injectGoogleFont } from '../lib/fonts';
 import { AgentLoadingSettings, LoadingStateConfig } from './AgentLoadingSettings';
+import { AgentCronManager, AgentJob } from './AgentCronManager';
 import QRCode from 'qrcode';
 
 // CRITICAL: Update Service Worker runtimeCaching to include fonts.googleapis.com and fonts.gstatic.com for offline support.
@@ -964,87 +965,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
 
           {/* Cron Jobs */}
           <div className="space-y-3 p-4 bg-[var(--panel-bg)] border border-[var(--border)] rounded-xl">
-              <div className="flex flex-col gap-3">
-                  <label className="text-xs uppercase tracking-wider text-[var(--text-muted)] flex items-center shrink-0">
-                      <Clock size={14} className="mr-1" /> Cron Jobs (Background Tasks)
-                  </label>
-                  
-                  <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-[10px] text-blue-400 mb-2">
-                      <strong>Beta Note:</strong> These scheduled tasks require a backend trigger. Once deployed to GitHub Pages, you will need to set up a GitHub Action to ping your Firebase instance to execute these jobs.
-                  </div>
-
-                  <div className="grid grid-cols-4 sm:flex sm:flex-wrap gap-2 w-full">
-                      {CRON_INTERVALS.map(min => (
-                          <button 
-                              key={min} 
-                              onClick={() => addCronJob(min)}
-                              className="px-2 py-2 sm:py-1 text-[10px] sm:text-[9px] bg-[var(--panel-bg)] border border-[var(--border)] rounded hover:border-[var(--accent)] text-center w-full"
-                          >
-                              +{min}m
-                          </button>
-                      ))}
-                  </div>
-              </div>
-              
-              <div className="space-y-2">
-                  {cronJobs.length === 0 && (
-                      <div className="text-center py-4 text-[var(--text-muted)] text-xs border border-dashed border-[var(--border)] rounded-xl">
-                          No scheduled jobs.
-                      </div>
-                  )}
-                  {cronJobs.map((job, idx) => (
-                      <div key={job.id} className="p-3 bg-[var(--panel-bg)] border border-[var(--border)] rounded-xl space-y-2">
-                          <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-2">
-                                  <span className="text-xs font-bold text-[var(--accent)]">{job.interval}m</span>
-                                  <input 
-                                      value={job.name}
-                                      onChange={(e) => updateCronJob(job.id, { name: e.target.value })}
-                                      className="bg-transparent border-b border-transparent focus:border-[var(--accent)] outline-none text-xs flex-1 min-w-0"
-                                      placeholder="Job Name"
-                                  />
-                              </div>
-                              <button onClick={() => removeCronJob(job.id)} className="text-[var(--text-muted)] hover:text-red-500">
-                                  <X size={14} />
-                              </button>
-                          </div>
-                          
-                          <div className="flex flex-col sm:flex-row gap-2">
-                              <select 
-                                  value={job.action}
-                                  onChange={(e) => updateCronJob(job.id, { action: e.target.value })}
-                                  className="w-full sm:flex-1 bg-[var(--bg-color)] border border-[var(--border)] rounded px-2 py-1 text-xs min-w-0"
-                              >
-                                  {JOB_ACTIONS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
-                              </select>
-                              
-                              {/* Action Specific Settings */}
-                              {job.action === 'check_messages' && (
-                                  <select 
-                                      value={job.settings?.tone || 'private'}
-                                      onChange={(e) => updateCronJob(job.id, { settings: { ...job.settings, tone: e.target.value } })}
-                                      className="w-full sm:w-24 bg-[var(--bg-color)] border border-[var(--border)] rounded px-2 py-1 text-xs"
-                                  >
-                                      <option value="private">Private</option>
-                                      <option value="public">Public</option>
-                                  </select>
-                              )}
-                              {job.action === 'check_calendar' && (
-                                  <select 
-                                      value={job.settings?.timeframe || '1h'}
-                                      onChange={(e) => updateCronJob(job.id, { settings: { ...job.settings, timeframe: e.target.value } })}
-                                      className="w-full sm:w-24 bg-[var(--bg-color)] border border-[var(--border)] rounded px-2 py-1 text-xs"
-                                  >
-                                      <option value="30m">30 min</option>
-                                      <option value="1h">1 Hour</option>
-                                      <option value="2h">2 Hours</option>
-                                      <option value="day">Today</option>
-                                  </select>
-                              )}
-                          </div>
-                      </div>
-                  ))}
-              </div>
+              <AgentCronManager jobs={cronJobs} onChange={setCronJobs} />
           </div>
 
           <AgentLoadingSettings 

@@ -1,6 +1,7 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import net from 'net';
+import webpush from 'web-push';
 
 async function startServer() {
   const app = express();
@@ -381,6 +382,93 @@ async function startServer() {
       res.json(data);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Task 3: The API Handler
+  // Draft the /api/agent-cron serverless function boilerplate.
+  app.all('/api/agent-cron', async (req, res) => {
+    try {
+      // Secure by checking for a Bearer token matching a CRON_SECRET environment variable
+      const authHeader = req.headers.authorization;
+      const expectedToken = process.env.CRON_SECRET;
+      
+      if (!expectedToken) {
+        console.warn('CRON_SECRET is not set in environment variables.');
+      } else if (authHeader !== `Bearer ${expectedToken}`) {
+        return res.status(401).json({ message: 'Unauthorized: Invalid CRON_SECRET' });
+      }
+
+      // In a real serverless environment with a shared database (e.g., Vercel KV, Postgres, Firebase),
+      // we would fetch the "Virtual Cron" registry here.
+      // Since the frontend currently manages this in IndexedDB (client-side),
+      // this boilerplate assumes a database connection exists to fetch the jobs.
+      
+      // const jobs = await db.collection('agent_jobs').find({}).toArray();
+      const mockJobs = [
+        { id: '1', scheduleType: 'interval', scheduleValue: '2', description: 'Check emails', nextRun: Date.now() - 1000 }
+      ];
+
+      const now = Date.now();
+      const executedJobs = [];
+
+      for (const job of mockJobs) {
+        if (job.nextRun && job.nextRun <= now) {
+          // Trigger the AI agent logic for jobs that are due
+          console.log(`Executing AI Agent job: ${job.id} - ${job.description}`);
+          
+          // TODO: Implement actual AI agent logic here (e.g., calling Gemini API)
+          // await executeAgentTask(job);
+
+          // Update nextRun in database
+          // await db.collection('agent_jobs').updateOne({ id: job.id }, { $set: { lastRun: now, nextRun: calculateNextRun(job) } });
+          
+          executedJobs.push(job.id);
+        }
+      }
+
+      res.status(200).json({ 
+        message: 'Cron execution completed', 
+        executedJobs,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error('Cron job error:', error);
+      res.status(500).json({ message: 'Internal server error during cron execution' });
+    }
+  });
+
+  app.post('/api/dispatch-alert', async (req, res) => {
+    try {
+      const { subscription, payload } = req.body;
+
+      if (!subscription) {
+        return res.status(400).json({ message: 'Missing subscription object' });
+      }
+
+      const publicKey = process.env.VITE_VAPID_PUBLIC_KEY || 'BDQ_jLH36RMyWtb17fz7gYDSXWw5zgw2_5aZ_yZhJHimNQg3JKRJ6w0iy2n-0c8hrLxRQbRn2C3d8O8OHl75Cx8';
+      const privateKey = process.env.VAPID_PRIVATE_KEY || 'WDDrU6ozVNenIgN8x1uKsLMsvvyOp4njT9LBhOM7LBA';
+
+      if (!publicKey || !privateKey) {
+        return res.status(500).json({ message: 'VAPID keys are not configured on the server' });
+      }
+
+      webpush.setVapidDetails(
+        'mailto:admin@projectradix.com',
+        publicKey,
+        privateKey
+      );
+
+      const pushPayload = JSON.stringify(payload || {
+        title: 'Project RADIX',
+        body: 'You have a new alert from your AI Agent.'
+      });
+
+      await webpush.sendNotification(subscription, pushPayload);
+      res.status(200).json({ message: 'Push notification dispatched successfully' });
+    } catch (error: any) {
+      console.error('Error dispatching push notification:', error);
+      res.status(500).json({ message: 'Failed to dispatch push notification', error: error.message });
     }
   });
 

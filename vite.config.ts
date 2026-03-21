@@ -67,7 +67,8 @@ export default defineConfig(({ mode }) => {
           maximumFileSizeToCacheInBytes: 15000000,
           cleanupOutdatedCaches: true,
           clientsClaim: true,
-          skipWaiting: true
+          skipWaiting: true,
+          importScripts: ['/push-sw.js']
         }
       })
     ],

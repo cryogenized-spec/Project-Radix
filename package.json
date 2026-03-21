@@ -85,6 +85,7 @@
     "vite": "^6.2.0",
     "vite-plugin-node-polyfills": "^0.25.0",
     "wavesurfer.js": "^7.12.1",
+    "web-push": "^3.6.7",
     "y-indexeddb": "^9.0.12",
     "y-webrtc": "^10.3.0",
     "yjs": "^13.6.29"
@@ -93,6 +94,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "@types/three": "^0.183.1",
+    "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.21",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
