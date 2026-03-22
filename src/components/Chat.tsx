@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RadixIcon } from './RadixIcon';
-import { Send, Mic, Image as ImageIcon, Paperclip, Ghost, Bot, Square, Play, Maximize2, Minimize2, Activity, Video, FileText, Music, MapPin, Users, BarChart2, X, MoreVertical, Trash2, Reply, Share2, Languages, PenTool, CheckCircle, Plus, Hash, MessageSquare, Shield, Globe, Lock, ChevronLeft, ChevronRight, ScanLine, QrCode, Copy, ExternalLink, Headphones, UserPlus, Check, Loader2, Calendar, Wand2, Monitor, RotateCcw } from 'lucide-react';
+import { Send, Mic, Image as ImageIcon, Paperclip, Ghost, Bot, Square, Play, Maximize2, Minimize2, Activity, Video, FileText, Music, MapPin, Users, BarChart2, X, MoreVertical, Trash2, Reply, Share2, Languages, PenTool, CheckCircle, Plus, Hash, MessageSquare, Shield, Globe, Lock, ChevronLeft, ChevronRight, ScanLine, QrCode, Copy, ExternalLink, Headphones, UserPlus, Check, Loader2, Calendar, Wand2, Monitor, RotateCcw, Database } from 'lucide-react';
 import { addMessage, getMessages, getSetting, setSetting, deleteMessage, addThread, getThreads, addGroup, getGroups, getContacts, addContact, getAgents, getStorageStats, evictOldMedia, addWhatsappMessage, getWhatsappMessages, deleteWhatsappMessage } from '../lib/db';
 import { generateAIResponse, generateAIResponseStream, transcribeAudio, generateRewrite, generateFactCheck, generateTranslation, generateVisualAnalysis } from '../lib/gemini';
 import { EMAIL_TOOLS, emailToolsHandler } from '../lib/emailTools';
@@ -24,6 +24,7 @@ import { useAvifEncoder } from '../hooks/useAvifEncoder';
 import { transcodeVideoToAV1 } from '../lib/transcode';
 import { Icon } from '@iconify/react';
 import ImageGenOverlay from './ImageGenOverlay';
+import AgenticRetrievalModal from './AgenticRetrievalModal';
 import ContactListOverlay from './ContactListOverlay';
 import { decryptApiKey } from '../lib/apiKeyCrypto';
 
@@ -221,6 +222,7 @@ Provide tactical advice or draft a response. If drafting a response, provide ONL
 
   // Image Generation State
   const [showImageGenOverlay, setShowImageGenOverlay] = useState<any | null>(null);
+  const [showAgenticRetrieval, setShowAgenticRetrieval] = useState(false);
 
   // Draft Persistence
   useEffect(() => {
@@ -2163,7 +2165,11 @@ Generate the next message from ${activeContext.contact.name}:`;
         audioRefs.current[msgId] = new Audio(url);
         audioRefs.current[msgId].onended = () => setPlayingAudioId(null);
       }
-      audioRefs.current[msgId].play();
+      audioRefs.current[msgId].play().catch((e: any) => {
+        if (e.name !== 'AbortError' && !e.message?.includes('interrupted')) {
+          console.error("Audio play error:", e);
+        }
+      });
       setPlayingAudioId(msgId);
     }
   };
@@ -3625,6 +3631,9 @@ Generate the next message from ${activeContext.contact.name}:`;
                     <button onMouseDown={(e) => e.preventDefault()} onClick={() => setInputMenuLevel('write')} className="p-3 text-sm hover:bg-[var(--bg-color)] rounded text-left flex items-center space-x-2">
                       <PenTool size={14} /> <span>Write for me</span>
                     </button>
+                    <button onMouseDown={(e) => e.preventDefault()} onClick={() => { setShowInputMenu(false); setShowAgenticRetrieval(true); }} className="p-3 text-sm hover:bg-[var(--bg-color)] rounded text-left flex items-center space-x-2">
+                      <Database size={14} /> <span>Invoke Agentic retrieval (multi-modal RAG)</span>
+                    </button>
                   </>
                 )}
 
@@ -4367,6 +4376,15 @@ Generate the next message from ${activeContext.contact.name}:`;
             } catch (err) {
               console.error("Failed to save generated image:", err);
             }
+          }}
+        />
+      )}
+
+      {showAgenticRetrieval && (
+        <AgenticRetrievalModal 
+          onClose={() => setShowAgenticRetrieval(false)}
+          onResult={(text) => {
+            setInput(text);
           }}
         />
       )}

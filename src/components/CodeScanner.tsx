@@ -35,7 +35,11 @@ export const CodeScanner: React.FC<CodeScannerProps> = ({ onScan, onClose }) => 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.onloadedmetadata = () => {
-            videoRef.current?.play().catch(e => console.error("Play error:", e));
+            videoRef.current?.play().catch(e => {
+              if (e.name !== 'AbortError' && !e.message?.includes('interrupted')) {
+                console.error("Play error:", e);
+              }
+            });
             setHasPermission(true);
             requestAnimationFrame(tick);
           };

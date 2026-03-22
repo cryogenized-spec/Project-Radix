@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Command } from 'cmdk';
-import { FileText, Plus, Moon, Sun, Search, LayoutDashboard } from 'lucide-react';
+import { FileText, Plus, Moon, Sun, Search, LayoutDashboard, X } from 'lucide-react';
 import { db, Note } from '../lib/organizerDb';
 
 interface CommandPaletteProps {
@@ -56,6 +56,9 @@ export default function CommandPalette({ open, setOpen, onSelectNote }: CommandP
             placeholder="Type a command or search notes..." 
             className="flex-1 bg-transparent py-4 text-[var(--text-main)] outline-none placeholder:text-[var(--text-muted)]"
           />
+          <button onClick={() => setOpen(false)} className="p-1 rounded-full hover:bg-[var(--bg-color)] text-[var(--text-muted)] transition-colors">
+            <X size={18} />
+          </button>
         </div>
 
         <Command.List className="max-h-[60vh] overflow-y-auto p-2">

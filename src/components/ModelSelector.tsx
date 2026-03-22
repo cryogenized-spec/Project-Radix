@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LOCAL_MODELS, LocalModel, ModelService, ModelStatus } from '../lib/ModelService';
-import { Download, HardDrive, Play, Trash2, CheckCircle2, Loader2, Cpu } from 'lucide-react';
+import { Download, HardDrive, Play, Trash2, CheckCircle2, Loader2, Cpu, X } from 'lucide-react';
 
 interface ModelSelectorProps {
   onSelectModel: (modelId: string) => void;
@@ -12,6 +12,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelectModel, sel
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [hasWebGPU, setHasWebGPU] = useState<boolean | null>(null);
+  const [abortControllers, setAbortControllers] = useState<Record<string, AbortController>>({});
 
   useEffect(() => {
     checkAllStatuses();
@@ -21,6 +22,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelectModel, sel
       const { modelId } = (e as CustomEvent).detail;
       setStatuses(prev => ({ ...prev, [modelId]: 'Offline Ready' }));
       setProgress(prev => ({ ...prev, [modelId]: 0 }));
+      setAbortControllers(prev => {
+        const next = { ...prev };
+        delete next[modelId];
+        return next;
+      });
     };
 
     const handleDeleted = (e: Event) => {
@@ -50,15 +56,39 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelectModel, sel
   const handleDownload = async (model: LocalModel) => {
     setStatuses(prev => ({ ...prev, [model.id]: 'Downloading' }));
     setProgress(prev => ({ ...prev, [model.id]: 0 }));
+    
+    const controller = new AbortController();
+    setAbortControllers(prev => ({ ...prev, [model.id]: controller }));
 
     try {
       await ModelService.downloadModel(model, (p) => {
         setProgress(prev => ({ ...prev, [model.id]: p }));
-      });
-    } catch (e) {
+      }, controller.signal);
+    } catch (e: any) {
       console.error(e);
       setStatuses(prev => ({ ...prev, [model.id]: 'Available' }));
-      alert('Download failed. Ensure your browser supports OPFS and you have enough storage.');
+      setAbortControllers(prev => {
+        const next = { ...prev };
+        delete next[model.id];
+        return next;
+      });
+      if (e.name !== 'AbortError') {
+        alert(e.message || 'Download failed. Ensure your browser supports OPFS and you have enough storage.');
+      }
+    }
+  };
+
+  const handleCancelDownload = (modelId: string) => {
+    const controller = abortControllers[modelId];
+    if (controller) {
+      controller.abort();
+      setStatuses(prev => ({ ...prev, [modelId]: 'Available' }));
+      setProgress(prev => ({ ...prev, [modelId]: 0 }));
+      setAbortControllers(prev => {
+        const next = { ...prev };
+        delete next[modelId];
+        return next;
+      });
     }
   };
 
@@ -119,11 +149,21 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelectModel, sel
                   <span className={isReady ? 'text-green-500' : isDownloading ? 'text-yellow-500' : 'text-[var(--text-muted)]'}>
                     {status}
                   </span>
+                  {!isReady && !isDownloading && model.isGated && (
+                    <a 
+                      href={`https://huggingface.co/${model.description}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="ml-2 text-[var(--accent)] hover:underline opacity-80"
+                    >
+                      (Requires EULA)
+                    </a>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
                   {isDownloading ? (
-                    <div className="flex items-center gap-3 w-32">
+                    <div className="flex items-center gap-3 w-40">
                       <div className="h-1.5 flex-1 bg-[var(--bg-color)] rounded-full overflow-hidden border border-[var(--border)]">
                         <div 
                           className="h-full bg-yellow-500 transition-all duration-300 ease-out"
@@ -131,6 +171,13 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelectModel, sel
                         />
                       </div>
                       <span className="text-xs font-mono text-yellow-500 w-8 text-right">{currentProgress}%</span>
+                      <button 
+                        onClick={() => handleCancelDownload(model.id)}
+                        className="p-1 text-[var(--text-muted)] hover:text-red-500 transition-colors"
+                        title="Cancel Download"
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
                   ) : isReady ? (
                     <>

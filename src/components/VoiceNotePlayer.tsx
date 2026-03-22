@@ -102,7 +102,11 @@ export default function VoiceNotePlayer({ url, accentColor = 'var(--accent)' }: 
       if (isPlaying) {
         audioRef.current.pause();
       } else {
-        audioRef.current.play();
+        audioRef.current.play().catch((e: any) => {
+          if (e.name !== 'AbortError' && !e.message?.includes('interrupted')) {
+            console.error("Audio play error:", e);
+          }
+        });
       }
       setIsPlaying(!isPlaying);
     }

@@ -87,6 +87,7 @@ export interface Note {
   isFolder?: boolean;
   parentId?: string;
   orderIndex?: number;
+  attachments?: { name: string, type: string, data: Blob | string }[];
 }
 
 export interface OrganizerThread {
@@ -96,6 +97,21 @@ export interface OrganizerThread {
   linkedEntityIds: string[];
   createdAt: number;
   updatedAt: number;
+}
+
+export interface DocumentRecord {
+  id: string;
+  fileName: string;
+  timestamp: number;
+  blob: Blob;
+  ocrText: string;
+  tags: string[];
+}
+
+export interface SearchIndexRecord {
+  id?: number;
+  word: string;
+  documentId: string;
 }
 
 export interface UndoOperation {
@@ -113,6 +129,8 @@ export class OrganizerDatabase extends Dexie {
   threads!: Table<OrganizerThread>;
   undoStack!: Table<UndoOperation>;
   settings!: Table<UserSettings>;
+  documents!: Table<DocumentRecord>;
+  search_index!: Table<SearchIndexRecord>;
 
   constructor() {
     super('OrganizerDB');
@@ -140,6 +158,11 @@ export class OrganizerDatabase extends Dexie {
 
     this.version(5).stores({
       notes: '++id, createdAt, updatedAt, parentId, orderIndex'
+    });
+
+    this.version(6).stores({
+      documents: 'id, timestamp, *tags',
+      search_index: '++id, word, documentId'
     });
   }
 

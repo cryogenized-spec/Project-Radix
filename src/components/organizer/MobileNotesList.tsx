@@ -11,9 +11,10 @@ interface MobileNotesListProps {
   onArchive?: (note: Note) => void;
   onCreateNote: () => void;
   tileSize?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  onOpenSearch?: () => void;
 }
 
-export default function MobileNotesList({ notes, onSelect, onArchive, onCreateNote, tileSize = 'md' }: MobileNotesListProps) {
+export default function MobileNotesList({ notes, onSelect, onArchive, onCreateNote, tileSize = 'md', onOpenSearch }: MobileNotesListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [sortBy, setSortBy] = useState<'recent' | 'alphabetical'>('recent');
@@ -176,14 +177,13 @@ export default function MobileNotesList({ notes, onSelect, onArchive, onCreateNo
         <div className="pointer-events-auto bg-[var(--panel-bg)]/80 backdrop-blur-xl border border-[var(--border)] rounded-2xl shadow-2xl p-3 flex flex-col gap-3">
           
           {/* Search Bar */}
-          <div className="relative flex items-center">
+          <div className="relative flex items-center" onClick={onOpenSearch}>
             <Search className="absolute left-3 text-[var(--text-muted)]" size={16} />
             <input 
               type="text"
               placeholder="Search notes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[var(--bg-color)]/50 border border-[var(--border)] rounded-xl py-2.5 pl-9 pr-4 text-sm text-[var(--text-main)] focus:outline-none focus:border-[var(--accent)] transition-colors placeholder:text-[var(--text-muted)]"
+              readOnly
+              className="w-full bg-[var(--bg-color)]/50 border border-[var(--border)] rounded-xl py-2.5 pl-9 pr-4 text-sm text-[var(--text-main)] focus:outline-none focus:border-[var(--accent)] transition-colors placeholder:text-[var(--text-muted)] cursor-pointer"
             />
           </div>
 

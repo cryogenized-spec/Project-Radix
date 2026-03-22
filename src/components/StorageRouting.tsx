@@ -192,8 +192,8 @@ export default function StorageRouting() {
             Vault Capacity
           </h2>
           
-          <div className="grid grid-cols-4 gap-2 sm:gap-4">
-            {[500, 1024, 2048, 5120].map(val => (
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-4">
+            {[500, 1024, 2048, 5120, 10240, 20480].map(val => (
               <button
                 key={val}
                 onClick={() => handleCapacityChange(val)}
@@ -212,6 +212,26 @@ export default function StorageRouting() {
             The app will autonomously manage the Media Pool to prevent hitting the ceiling.
           </p>
         </section>
+
+        {/* Storage Critical Warning */}
+        {usedPercent >= 85 && (
+          <section className="bg-red-500/10 border border-red-500/50 rounded-2xl p-6 shadow-sm">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-red-500 mb-2 flex items-center">
+              <ShieldAlert size={16} className="mr-2" />
+              STORAGE CRITICAL <span className="ml-2 bg-red-500 text-white px-2 py-0.5 rounded-full text-[10px]">{usedPercent.toFixed(1)}%</span>
+            </h2>
+            <p className="text-xs text-red-400 leading-relaxed mb-4">
+              Local vault usage: {usedMB.toFixed(1)}MB / {totalMB >= 1024 ? `${totalMB / 1024}GB` : `${totalMB}MB`}. 
+              Old media will be pruned automatically to free up space.
+            </p>
+            <div className="h-2 w-full bg-red-500/20 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-red-500"
+                style={{ width: `${usedPercent}%` }}
+              />
+            </div>
+          </section>
+        )}
 
         {/* 3. Transcoding Pipeline */}
         <section className="bg-[var(--panel-bg)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">

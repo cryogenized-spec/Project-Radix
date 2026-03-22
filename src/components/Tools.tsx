@@ -11,7 +11,6 @@ interface SerialPortInfo {
 
 const TABS = [
   { id: 'serial', label: 'Serial Terminal', icon: <TerminalSquare size={16} /> },
-  // { id: 'workbench', label: 'RADIX Workbench', icon: <Layers size={16} /> },
   { id: 'scanner', label: 'Scanner', icon: <ScanBarcode size={16} /> },
 ];
 

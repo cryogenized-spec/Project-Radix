@@ -6,7 +6,7 @@ import { GoogleGenAI } from '@google/genai';
 import { encryptApiKey, decryptApiKey } from '../lib/apiKeyCrypto';
 import { ModelSelector } from './ModelSelector';
 import { LOCAL_MODELS } from '../lib/ModelService';
-import LocalAIModelsConfig from './LocalAIModelsConfig';
+import LibrarianConfig from './LibrarianConfig';
 
 const PROVIDERS = ['Anthropic', 'DeepSeek', 'Google', 'Moonshot', 'OpenAI', 'xAI', 'Local (Gemini Nano)', 'Local Intelligence'];
 const STT_PROVIDERS = ['Local (Gemini Nano)', 'OpenAI (ChatGPT 4o)', 'OpenAI (ChatGPT 4o mini)', 'Google Cloud', 'Native Device'];
@@ -874,9 +874,9 @@ export default function ApiLockbox() {
         </div>
       </section>
 
-      {/* Local AI Models Settings */}
+      {/* Librarian Phase (RAG) Settings */}
       <section className="space-y-3 sm:space-y-4 radix-panel p-3 sm:p-4 rounded-xl">
-        <LocalAIModelsConfig />
+        <LibrarianConfig />
       </section>
 
       {/* Email Dispatch Settings */}

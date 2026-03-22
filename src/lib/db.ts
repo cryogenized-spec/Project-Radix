@@ -1,10 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { encryptData, decryptData, isCryptoInitialized } from './crypto';
 
-// Storage Quota
-const MAX_STORAGE_BYTES = 500 * 1024 * 1024; // 500MB
-const PRUNE_THRESHOLD = 0.9 * MAX_STORAGE_BYTES; // 450MB
-
 export class RadixDB extends Dexie {
   messages!: Table<any>;
   settings!: Table<any>;
@@ -27,7 +23,7 @@ export class RadixDB extends Dexie {
 
   constructor() {
     super('radix_db');
-    this.version(10).stores({
+    this.version(11).stores({
       messages: 'id, timestamp, threadId, type, isAiChat', // Indexed fields
       settings: 'key',
       threads: 'id, lastMessageTime',
@@ -135,24 +131,33 @@ export async function initStorage() {
   checkQuota();
 }
 
+export async function getVaultCapacityBytes(): Promise<number> {
+  const capStr = await getSetting('vaultCapacity');
+  const capMB = capStr ? parseInt(capStr, 10) : 500;
+  return capMB * 1024 * 1024;
+}
+
 export async function checkQuota() {
   if (navigator.storage && navigator.storage.estimate) {
     const { usage, quota } = await navigator.storage.estimate();
     console.log(`Storage usage: ${usage} / ${quota}`);
     
-    if (usage && usage > PRUNE_THRESHOLD) {
+    const maxBytes = await getVaultCapacityBytes();
+    const pruneThreshold = 0.9 * maxBytes;
+
+    if (usage && usage > pruneThreshold) {
       console.warn('Storage quota exceeded threshold, pruning old media...');
       await pruneOldMedia();
     }
     
-    return { usage, quota, isFull: (usage || 0) > MAX_STORAGE_BYTES };
+    return { usage, quota, isFull: (usage || 0) > maxBytes };
   }
   return { usage: 0, quota: 0, isFull: false };
 }
 
 async function pruneOldMedia() {
-  // Delete oldest media until usage is below 80% of MAX_STORAGE_BYTES
-  const targetUsage = 0.8 * MAX_STORAGE_BYTES;
+  const maxBytes = await getVaultCapacityBytes();
+  const targetUsage = 0.8 * maxBytes;
   let currentUsage = (await navigator.storage.estimate()).usage || 0;
   
   if (currentUsage <= targetUsage) return;
@@ -164,13 +169,6 @@ async function pruneOldMedia() {
     if (currentUsage <= targetUsage) break;
     
     await db.media.delete(media.id);
-    // Also remove reference from message if needed, but keeping metadata is required.
-    // The requirement says: "prune the local Blobs of the oldest media files while retaining the text-based message metadata."
-    // So we just delete the blob from 'media' table. The message table still has the metadata.
-    // But we need to update the message to indicate media is pruned?
-    // Or just let it fail to load? Better to mark it.
-    
-    // For now, just delete the blob.
     currentUsage -= (media.size || 0);
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Plus, Edit2, Trash2, MoreVertical, PanelLeftClose, PanelLeftOpen, Sparkles, Download, Eye, EyeOff, FolderPlus, Brain, Languages, Code, Image as ImageIcon, Check, X as XIcon, Copy, Network, Search, LayoutTemplate } from 'lucide-react';
+import { FileText, Plus, Edit2, Trash2, MoreVertical, PanelLeftClose, PanelLeftOpen, Sparkles, Download, Eye, EyeOff, FolderPlus, Brain, Languages, Code, Image as ImageIcon, Check, X as XIcon, Copy, Network, Search, LayoutTemplate, Cloud } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -14,6 +14,7 @@ import NotesGraphView from './NotesGraphView';
 import HybridNoteView from './HybridNoteView';
 import PropertyEditor from './PropertyEditor';
 import CommandPalette from '../CommandPalette';
+import ObsidianSync from '../ObsidianSync';
 
 const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
   const match = /language-(\w+)/.exec(className || '');
@@ -93,6 +94,7 @@ export default function NotesView() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [viewMode, setViewMode] = useState<'list' | 'folders' | 'graph' | 'canvas'>('list');
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [showObsidianSync, setShowObsidianSync] = useState(false);
 
   // Context Menu State
   const [showContextMenu, setShowContextMenu] = useState(false);
@@ -523,6 +525,13 @@ export default function NotesView() {
             >
               <Network size={18} />
             </button>
+            <button 
+              onClick={() => setShowObsidianSync(true)}
+              className="p-2 rounded-full hover:bg-[var(--panel-bg)] text-[var(--accent)]"
+              title="Obsidian Sync"
+            >
+              <Cloud size={18} />
+            </button>
             <button onClick={() => {
                 const newNote = { content: '', createdAt: Date.now(), updatedAt: Date.now(), isFolder: false, orderIndex: notes.filter(n => !n.parentId).length };
                 db.notes.add(newNote as any).then(() => loadNotes());
@@ -553,6 +562,7 @@ export default function NotesView() {
               key={notesListTileSize}
               notes={notes}
               tileSize={notesListTileSize}
+              onOpenSearch={() => setCommandPaletteOpen(true)}
               onSelect={(note) => {
                 setSelectedNote(note);
                 setEditContent(note.content);
@@ -599,6 +609,22 @@ export default function NotesView() {
 
   return (
     <div className="flex h-full relative overflow-hidden">
+      {showObsidianSync && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-[var(--bg-color)] border border-[var(--border)] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+              <h3 className="font-bold text-[var(--text-main)]">Obsidian Sync</h3>
+              <button onClick={() => setShowObsidianSync(false)} className="p-2 hover:bg-[var(--panel-bg)] rounded-full">
+                <XIcon size={18} />
+              </button>
+            </div>
+            <div className="p-4">
+              <ObsidianSync />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mobile Sidebar Backdrop */}
       {isSidebarOpen && !isMobile && (
         <div 
@@ -637,6 +663,13 @@ export default function NotesView() {
                 title="Toggle Canvas View"
               >
                 <LayoutTemplate size={18} />
+              </button>
+              <button 
+                onClick={() => setShowObsidianSync(true)}
+                className="p-1 rounded-full hover:bg-[var(--bg-color)] text-[var(--accent)]"
+                title="Obsidian Sync"
+              >
+                <Cloud size={18} />
               </button>
               <button onClick={() => {
                   const newNote = { content: '', createdAt: Date.now(), updatedAt: Date.now(), isFolder: false, orderIndex: notes.filter(n => !n.parentId).length };
@@ -935,6 +968,32 @@ export default function NotesView() {
                   >
                     {preprocessMarkdown(isEditing ? parseMarkdown(editContent).content : parseMarkdown(selectedNote.content).content)}
                   </ReactMarkdown>
+                  
+                  {selectedNote.attachments && selectedNote.attachments.length > 0 && (
+                    <div className="mt-8 pt-4 border-t border-[var(--border)]">
+                      <h4 className="text-sm font-bold text-[var(--text-muted)] mb-4 uppercase tracking-wider">Attachments</h4>
+                      <div className="flex flex-wrap gap-4">
+                        {selectedNote.attachments.map((att, idx) => (
+                          <div key={idx} className="relative group rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--panel-bg)]">
+                            {att.type.startsWith('image/') ? (
+                              <a href={typeof att.data === 'string' ? att.data : URL.createObjectURL(att.data)} target="_blank" rel="noopener noreferrer">
+                                <img 
+                                  src={typeof att.data === 'string' ? att.data : URL.createObjectURL(att.data)} 
+                                  alt={att.name} 
+                                  className="h-32 w-auto object-cover hover:opacity-80 transition-opacity"
+                                />
+                              </a>
+                            ) : (
+                              <div className="h-32 w-32 flex flex-col items-center justify-center p-4">
+                                <FileText size={32} className="text-[var(--text-muted)] mb-2" />
+                                <span className="text-xs text-center truncate w-full" title={att.name}>{att.name}</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {isEditing && suggestions.length > 0 && (
