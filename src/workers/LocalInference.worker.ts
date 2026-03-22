@@ -1,9 +1,11 @@
 /// <reference lib="webworker" />
 
-// This worker handles local LLM inference using WebGPU and OPFS.
-// We use a generic interface that can be adapted for @mlc-ai/web-llm or @mediapipe/tasks-genai.
+import { CreateMLCEngine, MLCEngine } from "@mlc-ai/web-llm";
 
-let engine: any = null;
+// This worker handles local LLM inference using WebGPU and OPFS.
+// We use @mlc-ai/web-llm which natively supports WebGPU and Cache API (persistent storage).
+
+let engine: MLCEngine | null = null;
 let currentModelId: string | null = null;
 
 self.onmessage = async (e: MessageEvent) => {
@@ -46,59 +48,46 @@ self.onmessage = async (e: MessageEvent) => {
 async function loadModel(modelId: string) {
   if (currentModelId === modelId && engine) return;
   
-  // Check OPFS for the model file
-  const root = await navigator.storage.getDirectory();
-  let fileHandle;
-  try {
-    fileHandle = await root.getFileHandle(`${modelId}.gguf`);
-  } catch (e) {
-    throw new Error(`Model ${modelId} not found in OPFS. Please download it first.`);
-  }
-
-  const file = await fileHandle.getFile();
-  
-  // Here we would initialize @mlc-ai/web-llm or @mediapipe/tasks-genai
-  // using the local file. Since OPFS files can be read as ArrayBuffer or Stream,
-  // we pass the data to the inference engine.
-  
-  // Simulated initialization for demonstration:
-  // In a real implementation:
-  // import { CreateMLCEngine } from "@mlc-ai/web-llm";
-  // engine = await CreateMLCEngine(modelId, { initProgressCallback: console.log });
-  
-  console.log(`Loading model ${modelId} from OPFS (${file.size} bytes)...`);
+  console.log(`Loading model ${modelId} via WebLLM...`);
   
   // Fallback to WebAssembly if WebGPU is not available
   if (!navigator.gpu) {
     console.warn('WebGPU not available, falling back to WebAssembly (slower).');
   }
 
-  // Mock engine for now
-  engine = {
-    generate: async (prompt: string) => {
-      await new Promise(r => setTimeout(r, 1000));
-      return `[Local ${modelId}] Response to: ${prompt}`;
-    },
-    stream: async function* (prompt: string) {
-      const words = `[Local ${modelId}] This is a streamed response from the local model running via WebGPU/WASM.`.split(' ');
-      for (const word of words) {
-        await new Promise(r => setTimeout(r, 100));
-        yield word + ' ';
-      }
-    }
+  const initProgressCallback = (progress: any) => {
+    self.postMessage({ type: 'MODEL_PROGRESS', id: 'load', progress: Math.round(progress.progress * 100), text: progress.text });
   };
+
+  engine = await CreateMLCEngine(modelId, { initProgressCallback });
   
   currentModelId = modelId;
 }
 
 async function generateText(prompt: string, systemPrompt?: string) {
-  const fullPrompt = systemPrompt ? `${systemPrompt}\n\nUser: ${prompt}\nAssistant:` : `User: ${prompt}\nAssistant:`;
-  return await engine.generate(fullPrompt);
+  if (!engine) throw new Error('Engine not initialized');
+  const messages = [];
+  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+  messages.push({ role: 'user', content: prompt });
+  
+  const reply = await engine.chat.completions.create({ messages });
+  return reply.choices[0].message.content;
 }
 
 async function streamGenerateText(prompt: string, systemPrompt: string | undefined, onChunk: (chunk: string) => void) {
-  const fullPrompt = systemPrompt ? `${systemPrompt}\n\nUser: ${prompt}\nAssistant:` : `User: ${prompt}\nAssistant:`;
-  for await (const chunk of engine.stream(fullPrompt)) {
-    onChunk(chunk);
+  if (!engine) throw new Error('Engine not initialized');
+  const messages = [];
+  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+  messages.push({ role: 'user', content: prompt });
+  
+  const asyncChunkGenerator = await engine.chat.completions.create({
+    messages,
+    stream: true,
+  });
+  
+  for await (const chunk of asyncChunkGenerator) {
+    if (chunk.choices[0]?.delta?.content) {
+      onChunk(chunk.choices[0].delta.content);
+    }
   }
 }

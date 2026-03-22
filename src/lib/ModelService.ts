@@ -72,6 +72,35 @@ export const LOCAL_MODELS: LocalModel[] = [
     sizeBytes: 2500000000,
     tags: ['Engineering/CAD']
   }
+  {
+    id: 'qwen-3.5-1.7b',
+    name: 'Qwen 3.5 (1.7B)',
+    description: 'Qwen/Qwen2.5-1.5B-Instruct-GGUF',
+    url: 'https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf',
+    sizeBytes: 1200000000
+  },
+  {
+    id: 'phi-4-mini-abliterated',
+    name: 'Phi-4-mini-Abliterated (3.8B)',
+    description: 'huihui-ai/Phi-4-mini-instruct-abliterated',
+    url: 'https://huggingface.co/huihui-ai/Phi-4-mini-instruct-abliterated/resolve/main/phi-4-mini-instruct-abliterated-q4_k_m.gguf',
+    sizeBytes: 2500000000
+  },
+  {
+    id: 'llama-3.1-8b-instruct',
+    name: 'Llama 3.1 (8B)',
+    description: 'meta-llama/Llama-3.1-8B-Instruct',
+    url: 'https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf',
+    sizeBytes: 5200000000,
+    isGated: true
+  },
+  {
+    id: 'mistral-nemo-12b',
+    name: 'Mistral Nemo (12B)',
+    description: 'mistralai/Mistral-Nemo-Instruct-2407',
+    url: 'https://huggingface.co/bartowski/Mistral-Nemo-Instruct-2407-GGUF/resolve/main/Mistral-Nemo-Instruct-2407-Q4_K_M.gguf',
+    sizeBytes: 7500000000
+  }
 ];
 
 export type ModelStatus = 'Available' | 'Downloading' | 'Offline Ready';
@@ -106,7 +135,7 @@ export class ModelService {
 
   static async downloadModel(
     model: LocalModel, 
-    onProgress: (progress: number) => void,
+    onProgress: (progress: number, speedBytesPerSec: number) => void,
     signal?: AbortSignal
   ): Promise<void> {
     try {
@@ -131,21 +160,20 @@ export class ModelService {
       const contentLength = response.headers.get('content-length');
       const total = contentLength ? parseInt(contentLength, 10) : model.sizeBytes;
       let loaded = 0;
+      let lastTime = performance.now();
+      let lastLoaded = 0;
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error('Failed to get reader from response');
 
       const dir = await this.getOPFSDirectory();
       const fileHandle = await dir.getFileHandle(`${model.id}.gguf`, { create: true });
-      // Use createWritable if available, otherwise fallback to a memory buffer (not ideal for large files, but OPFS sync access handle is worker-only)
-      // In main thread, createWritable is available in some browsers.
       
       let writable;
       try {
         writable = await (fileHandle as any).createWritable();
       } catch (e) {
         console.warn("createWritable not supported, buffering in memory (may crash on large models)");
-        // Fallback for browsers without createWritable on main thread OPFS
         const chunks: Uint8Array[] = [];
         while (true) {
           const { done, value } = await reader.read();
@@ -153,12 +181,16 @@ export class ModelService {
           if (value) {
             chunks.push(value);
             loaded += value.length;
-            onProgress(Math.round((loaded / total) * 100));
+            const now = performance.now();
+            if (now - lastTime > 500) {
+              const speed = ((loaded - lastLoaded) / (now - lastTime)) * 1000;
+              onProgress(Math.round((loaded / total) * 100), speed);
+              lastTime = now;
+              lastLoaded = loaded;
+            }
           }
         }
         const blob = new Blob(chunks);
-        // We can't easily write a Blob to OPFS without createWritable or SyncAccessHandle.
-        // If createWritable fails, OPFS might not be fully supported.
         throw new Error("OPFS createWritable not supported in this browser.");
       }
 
@@ -168,12 +200,18 @@ export class ModelService {
         if (value) {
           await writable.write(value);
           loaded += value.length;
-          onProgress(Math.round((loaded / total) * 100));
+          const now = performance.now();
+          if (now - lastTime > 500) {
+            const speed = ((loaded - lastLoaded) / (now - lastTime)) * 1000;
+            onProgress(Math.round((loaded / total) * 100), speed);
+            lastTime = now;
+            lastLoaded = loaded;
+          }
         }
       }
       
       await writable.close();
-      onProgress(100);
+      onProgress(100, 0);
       
       // Dispatch event to notify the app
       window.dispatchEvent(new CustomEvent('local-model-downloaded', { detail: { modelId: model.id } }));

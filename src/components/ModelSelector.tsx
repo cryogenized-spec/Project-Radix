@@ -10,6 +10,7 @@ interface ModelSelectorProps {
 export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelectModel, selectedModelId }) => {
   const [statuses, setStatuses] = useState<Record<string, ModelStatus>>({});
   const [progress, setProgress] = useState<Record<string, number>>({});
+  const [progressText, setProgressText] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [hasWebGPU, setHasWebGPU] = useState<boolean | null>(null);
   const [abortControllers, setAbortControllers] = useState<Record<string, AbortController>>({});
@@ -54,15 +55,27 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelectModel, sel
   };
 
   const handleDownload = async (model: LocalModel) => {
+    // Memory Guard
+    if (model.id.includes('Llama-3.1-8B') || model.id.includes('Mistral-Nemo')) {
+      const deviceMemory = (navigator as any).deviceMemory || 8;
+      if (deviceMemory < 12) {
+        if (!confirm(`Hardware Warning: Your device reports ${deviceMemory}GB RAM. The ${model.name} model requires at least 12GB RAM to run smoothly. Do you want to continue downloading?`)) {
+          return;
+        }
+      }
+    }
+
     setStatuses(prev => ({ ...prev, [model.id]: 'Downloading' }));
     setProgress(prev => ({ ...prev, [model.id]: 0 }));
+    setProgressText(prev => ({ ...prev, [model.id]: 'Starting download...' }));
     
     const controller = new AbortController();
     setAbortControllers(prev => ({ ...prev, [model.id]: controller }));
 
     try {
-      await ModelService.downloadModel(model, (p) => {
+      await ModelService.downloadModel(model, (p, text) => {
         setProgress(prev => ({ ...prev, [model.id]: p }));
+        if (text) setProgressText(prev => ({ ...prev, [model.id]: text }));
       }, controller.signal);
     } catch (e: any) {
       console.error(e);
@@ -163,21 +176,25 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelectModel, sel
 
                 <div className="flex items-center gap-2">
                   {isDownloading ? (
-                    <div className="flex items-center gap-3 w-40">
-                      <div className="h-1.5 flex-1 bg-[var(--bg-color)] rounded-full overflow-hidden border border-[var(--border)]">
-                        <div 
-                          className="h-full bg-yellow-500 transition-all duration-300 ease-out"
-                          style={{ width: `${currentProgress}%` }}
-                        />
+                    <div className="flex flex-col items-end gap-1 w-64">
+                      <div className="text-[10px] text-[var(--text-muted)] truncate w-full text-right">
+                        {model.name} | {progressText[model.id] || 'Downloading...'} | {currentProgress}%
                       </div>
-                      <span className="text-xs font-mono text-yellow-500 w-8 text-right">{currentProgress}%</span>
-                      <button 
-                        onClick={() => handleCancelDownload(model.id)}
-                        className="p-1 text-[var(--text-muted)] hover:text-red-500 transition-colors"
-                        title="Cancel Download"
-                      >
-                        <X size={14} />
-                      </button>
+                      <div className="flex items-center gap-2 w-full">
+                        <div className="h-1.5 flex-1 bg-[var(--bg-color)] rounded-full overflow-hidden border border-[var(--border)]">
+                          <div 
+                            className="h-full bg-yellow-500 transition-all duration-300 ease-out"
+                            style={{ width: `${currentProgress}%` }}
+                          />
+                        </div>
+                        <button 
+                          onClick={() => handleCancelDownload(model.id)}
+                          className="p-1 text-[var(--text-muted)] hover:text-red-500 transition-colors"
+                          title="Cancel Download"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
                     </div>
                   ) : isReady ? (
                     <>

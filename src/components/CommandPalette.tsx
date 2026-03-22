@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Command } from 'cmdk';
+import * as Dialog from '@radix-ui/react-dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { FileText, Plus, Moon, Sun, Search, LayoutDashboard, X } from 'lucide-react';
 import { db, Note } from '../lib/organizerDb';
 
@@ -49,6 +51,9 @@ export default function CommandPalette({ open, setOpen, onSelectNote }: CommandP
       onOpenChange={setOpen}
       className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/50 backdrop-blur-sm p-4"
     >
+      <VisuallyHidden>
+        <Dialog.Title>Command Palette</Dialog.Title>
+      </VisuallyHidden>
       <div className="w-full max-w-xl bg-[var(--panel-bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center px-4 border-b border-[var(--border)]">
           <Search className="text-[var(--text-muted)] mr-2" size={18} />
