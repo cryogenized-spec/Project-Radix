@@ -59,6 +59,10 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
   const [isFeed, setIsFeed] = useState(false);
   const [feedMode, setFeedMode] = useState<'ghost' | 'public'>('ghost');
 
+  // Cyan Pin (Channeler)
+  const [isChanneler, setIsChanneler] = useState(false);
+  const [channelerMode, setChannelerMode] = useState<'ghost' | 'public'>('ghost');
+
   // Purple Pin (Workbench)
   const [isWorkbench, setIsWorkbench] = useState(false);
   const [workbenchMode, setWorkbenchMode] = useState<'ghost' | 'public'>('ghost');
@@ -91,7 +95,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
       portraitScale, portraitAspectRatio,
       moodPortraits, moodDetectionPrompt, roleplayEnabled, roleplayInstruction,
       storageAccess,
-      isPrimary, primaryMode, isOrganizer, organizerMode, isFeed, feedMode, isWorkbench, workbenchMode, isCall, callMode, cronJobs, loadingState
+      isPrimary, primaryMode, isOrganizer, organizerMode, isFeed, feedMode, isChanneler, channelerMode, isWorkbench, workbenchMode, isCall, callMode, cronJobs, loadingState
     };
 
     // If we are not at the end of history, truncate future
@@ -142,6 +146,8 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
       setOrganizerMode(state.organizerMode);
       setIsFeed(state.isFeed || false);
       setFeedMode(state.feedMode || 'ghost');
+      setIsChanneler(state.isChanneler || false);
+      setChannelerMode(state.channelerMode || 'ghost');
       setIsWorkbench(state.isWorkbench || false);
       setWorkbenchMode(state.workbenchMode || 'ghost');
       setIsCall(state.isCall || false);
@@ -174,7 +180,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
                   portraitScale, portraitAspectRatio,
                   moodPortraits, moodDetectionPrompt, roleplayEnabled, roleplayInstruction,
                   storageAccess,
-                  isPrimary, primaryMode, isOrganizer, organizerMode, isFeed, feedMode, isWorkbench, workbenchMode, isCall, callMode, cronJobs, loadingState
+                  isPrimary, primaryMode, isOrganizer, organizerMode, isFeed, feedMode, isChanneler, channelerMode, isWorkbench, workbenchMode, isCall, callMode, cronJobs, loadingState
               });
               
               const lastState = historyRef.current[historyIndexRef.current];
@@ -184,7 +190,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
           }
       }, 1000); // 1 second debounce
       return () => clearTimeout(timer);
-  }, [name, privatePersona, publicPersona, font, fontUrl, fontColor, streamResponse, portraitScale, portraitAspectRatio, moodPortraits, moodDetectionPrompt, roleplayEnabled, roleplayInstruction, storageAccess, isPrimary, primaryMode, isOrganizer, organizerMode, isFeed, feedMode, isWorkbench, workbenchMode, isCall, callMode, cronJobs, loadingState, isEditing]);
+  }, [name, privatePersona, publicPersona, font, fontUrl, fontColor, streamResponse, portraitScale, portraitAspectRatio, moodPortraits, moodDetectionPrompt, roleplayEnabled, roleplayInstruction, storageAccess, isPrimary, primaryMode, isOrganizer, organizerMode, isFeed, feedMode, isChanneler, channelerMode, isWorkbench, workbenchMode, isCall, callMode, cronJobs, loadingState, isEditing]);
 
 
   useEffect(() => {
@@ -305,6 +311,9 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
     setIsFeed(agent.isFeed || false);
     setFeedMode(agent.feedMode || 'ghost');
     
+    setIsChanneler(agent.isChanneler || false);
+    setChannelerMode(agent.channelerMode || 'ghost');
+    
     setIsWorkbench(agent.isWorkbench || false);
     setWorkbenchMode(agent.workbenchMode || 'ghost');
     
@@ -356,6 +365,12 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
             await addAgent({ ...otherFeed, isFeed: false });
         }
     }
+    if (isChanneler) {
+        const otherChanneler = agents.find(a => a.id !== agentId && a.isChanneler);
+        if (otherChanneler) {
+            await addAgent({ ...otherChanneler, isChanneler: false });
+        }
+    }
     if (isWorkbench) {
         const otherWorkbench = agents.find(a => a.id !== agentId && a.isWorkbench);
         if (otherWorkbench) {
@@ -397,6 +412,8 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
       organizerMode,
       isFeed, // Green Pin
       feedMode,
+      isChanneler, // Cyan Pin
+      channelerMode,
       isWorkbench, // Purple Pin
       workbenchMode,
       isCall, // Yellow Pin
@@ -903,6 +920,36 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
               </div>
           </div>
 
+          {/* Cyan Pin / Channeler */}
+          <div className="flex items-start justify-between p-4 bg-[var(--panel-bg)] border border-[var(--border)] rounded-xl gap-4">
+              <div className="flex items-start space-x-3 flex-1 min-w-0">
+                  <div className={`p-2 rounded-full shrink-0 ${isChanneler ? 'bg-cyan-500/20 text-cyan-500' : 'bg-[var(--bg-color)] text-[var(--text-muted)]'}`}>
+                      <Pin size={20} />
+                  </div>
+                  <div className="min-w-0">
+                      <div className="font-bold text-sm truncate">Channeler Agent (Cyan Pin)</div>
+                      <div className="text-[10px] text-[var(--text-muted)] leading-tight break-words">Curates search content into neat GFM.</div>
+                  </div>
+              </div>
+              <div className="flex flex-col items-end space-y-2 shrink-0">
+                  {isChanneler && (
+                      <button 
+                        onClick={() => setChannelerMode(channelerMode === 'ghost' ? 'public' : 'ghost')}
+                        className="flex items-center space-x-1 px-2 py-1 rounded bg-[var(--bg-color)] border border-[var(--border)] text-[10px] uppercase font-bold"
+                      >
+                          {channelerMode === 'ghost' ? <Ghost size={12} /> : <Users size={12} />}
+                          <span>{channelerMode}</span>
+                      </button>
+                  )}
+                  <button 
+                      onClick={() => setIsChanneler(!isChanneler)}
+                      className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${isChanneler ? 'bg-cyan-500' : 'bg-[var(--border)]'}`}
+                  >
+                      <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isChanneler ? 'left-7' : 'left-1'}`} />
+                  </button>
+              </div>
+          </div>
+
           {/* Purple Pin / Workbench */}
           <div className="flex items-start justify-between p-4 bg-[var(--panel-bg)] border border-[var(--border)] rounded-xl gap-4">
               <div className="flex items-start space-x-3 flex-1 min-w-0">
@@ -1055,6 +1102,11 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
                     )}
                     {agent.isFeed && (
                         <div className="absolute -bottom-1 -left-1 bg-green-500 text-white p-0.5 rounded-full border border-[var(--bg-color)]">
+                            <Pin size={8} fill="currentColor" />
+                        </div>
+                    )}
+                    {agent.isChanneler && (
+                        <div className="absolute -top-1 -left-1 bg-cyan-500 text-white p-0.5 rounded-full border border-[var(--bg-color)]">
                             <Pin size={8} fill="currentColor" />
                         </div>
                     )}

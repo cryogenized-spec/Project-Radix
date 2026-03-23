@@ -1,0 +1,34 @@
+{
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "Container",
+      "style": "emphasis",
+      "items": [
+        {
+          "type": "Image",
+          "url": "/icons/icon-192.png",
+          "size": "Medium",
+          "horizontalAlignment": "Center",
+          "altText": "Microphone Icon"
+        },
+        {
+          "type": "TextBlock",
+          "text": "Tap to Speak Task",
+          "horizontalAlignment": "Center",
+          "weight": "Bolder",
+          "color": "Accent",
+          "spacing": "Small"
+        }
+      ],
+      "selectAction": {
+        "type": "Action.Execute",
+        "verb": "open_vtt",
+        "data": {
+          "action": "trigger_voice_task"
+        }
+      }
+    }
+  ]
+}

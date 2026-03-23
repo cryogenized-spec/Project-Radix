@@ -59,6 +59,18 @@ export default defineConfig(({ mode }) => {
               type: 'image/png',
               purpose: 'maskable'
             }
+          ],
+          widgets: [
+            {
+              name: 'Voice Task Entry',
+              short_name: 'Voice Task',
+              description: 'Quickly add tasks using your voice via Organizer AI.',
+              tag: 'voice-task-widget',
+              template_url: '/widget-template.json',
+              ms_ac_template: '/widget-template.json',
+              data_url: '/widget-data.json',
+              type: 'application/json'
+            }
           ]
         },
         workbox: {
@@ -68,7 +80,7 @@ export default defineConfig(({ mode }) => {
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
-          importScripts: ['/push-sw.js']
+          importScripts: ['/push-sw.js', '/widget-sw.js']
         }
       })
     ],

@@ -73,9 +73,14 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelectModel, sel
     setAbortControllers(prev => ({ ...prev, [model.id]: controller }));
 
     try {
-      await ModelService.downloadModel(model, (p, text) => {
+      await ModelService.downloadModel(model, (p, speed) => {
         setProgress(prev => ({ ...prev, [model.id]: p }));
-        if (text) setProgressText(prev => ({ ...prev, [model.id]: text }));
+        if (speed > 0) {
+          const speedMB = (speed / 1024 / 1024).toFixed(1);
+          setProgressText(prev => ({ ...prev, [model.id]: `${speedMB} MB/s` }));
+        } else {
+          setProgressText(prev => ({ ...prev, [model.id]: 'Downloading...' }));
+        }
       }, controller.signal);
     } catch (e: any) {
       console.error(e);

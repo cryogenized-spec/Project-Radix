@@ -20,5 +20,17 @@
   "background_color": "#121212",
   "display": "standalone",
   "scope": "/",
-  "theme_color": "#BB86FC"
+  "theme_color": "#BB86FC",
+  "widgets": [
+    {
+      "name": "Voice Task Entry",
+      "short_name": "Voice Task",
+      "description": "Quickly add tasks using your voice via Organizer AI.",
+      "tag": "voice-task-widget",
+      "template_url": "/widget-template.json",
+      "ms_ac_template": "/widget-template.json",
+      "data_url": "/widget-data.json",
+      "type": "application/json"
+    }
+  ]
 }

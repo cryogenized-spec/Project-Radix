@@ -71,7 +71,7 @@ export const LOCAL_MODELS: LocalModel[] = [
     url: 'https://huggingface.co/mlc-ai/Phi-4-mini-instruct-q4f16_1-MLC/resolve/main/Phi-4-mini-instruct-q4f16_1-MLC.gguf',
     sizeBytes: 2500000000,
     tags: ['Engineering/CAD']
-  }
+  },
   {
     id: 'qwen-3.5-1.7b',
     name: 'Qwen 3.5 (1.7B)',

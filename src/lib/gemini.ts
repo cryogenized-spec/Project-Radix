@@ -256,9 +256,12 @@ export async function generateChannelerAnalysis(content: string, promptStrategy:
   
   let systemPrompt = "You are the Channeler, an elite intelligence analyst for Project RADIX. Your goal is to extract high-signal intelligence from raw data streams.";
   if (settings.agent) {
-    const mode = settings.agent.feedMode || 'ghost';
+    const mode = settings.agent.channelerMode || settings.agent.feedMode || 'ghost';
     systemPrompt = mode === 'ghost' ? settings.agent.privatePersona : settings.agent.publicPersona;
   }
+  
+  // Append GFM and creative formatting instructions
+  systemPrompt += "\n\nCRITICAL INSTRUCTION: You MUST curate the provided search content and format it into neat GitHub Flavored Markdown (GFM). Use bullets, emoticons, bolding, blockquotes, and the whole markdown palette creatively to make the rundown highly readable, engaging, and visually appealing.";
   
   let userPrompt = "";
 

@@ -44,7 +44,9 @@ export default function App() {
       e.preventDefault();
     };
     window.addEventListener('contextmenu', handleContextMenu);
-    return () => window.removeEventListener('contextmenu', handleContextMenu);
+    return () => {
+      window.removeEventListener('contextmenu', handleContextMenu);
+    };
   }, []);
 
   useEffect(() => {
@@ -57,6 +59,25 @@ export default function App() {
       // Clean up URL
       window.history.replaceState({}, '', '/');
     }
+
+    // Check for widget voice mode
+    const mode = params.get('mode');
+    if (mode === 'voice') {
+      // Small delay to ensure components are mounted
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('organizer:open-ai-vtt'));
+      }, 500);
+      // Clean up URL
+      window.history.replaceState({}, '', '/');
+    }
+
+    // Listen for Service Worker messages (if app was already open)
+    const handleSWMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'TRIGGER_VTT') {
+        window.dispatchEvent(new CustomEvent('organizer:open-ai-vtt'));
+      }
+    };
+    navigator.serviceWorker?.addEventListener('message', handleSWMessage);
 
     const checkPinned = async () => {
       const session = await getSetting('pinned_shared_session');
@@ -104,7 +125,10 @@ export default function App() {
     };
 
     window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+      navigator.serviceWorker?.removeEventListener('message', handleSWMessage);
+    };
   }, [currentView]);
 
   useEffect(() => {

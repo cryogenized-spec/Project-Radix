@@ -51,6 +51,20 @@ export default function OrganizerFab({ onNotification, onNavigate }: OrganizerFa
     setIsMenuOpen(!isMenuOpen);
   };
 
+  useEffect(() => {
+    const handleOpenVTT = () => {
+      setShowOverlay(true);
+      setIsMenuOpen(false);
+      // Wait for overlay to render before starting recording
+      setTimeout(() => {
+        startRecording();
+      }, 100);
+    };
+
+    window.addEventListener('organizer:open-ai-vtt', handleOpenVTT);
+    return () => window.removeEventListener('organizer:open-ai-vtt', handleOpenVTT);
+  }, []);
+
   const handleAgentClick = () => {
       setInputMode('text');
       setShowOverlay(true);

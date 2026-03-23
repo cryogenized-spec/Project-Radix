@@ -18,6 +18,12 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import TurndownService from 'turndown';
 
+const MemoizedMarkdown = React.memo(({ content, components }: { content: string, components?: any }) => (
+  <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+    {content}
+  </ReactMarkdown>
+));
+
 // --- Types ---
 export interface Folder {
   id: string;
@@ -626,6 +632,62 @@ function TelegramPostPreview({ text, url, channelName }: { text: string, url: st
 }
 
 // --- Discovery Search Window Component ---
+const ResultItem = React.memo(({ result, idx, addedUrls, handleFindSimilar, handleAdd }: any) => (
+  <motion.div 
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, scale: 0.95 }}
+    transition={{ duration: 0.2, delay: idx * 0.05 }}
+    className="p-4 sm:p-5 bg-[var(--panel-bg)] border border-[var(--border)] rounded-2xl hover:border-[var(--text-muted)] transition-colors flex flex-col space-y-3 shadow-sm"
+  >
+    <div className="flex justify-between items-start gap-4">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center space-x-2 mb-1">
+          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[var(--bg-color)] border border-[var(--border)] text-[var(--text-muted)]">
+            {getSourceTypeBadge(result.url)}
+          </span>
+        </div>
+        <h3 className="text-base sm:text-lg font-bold text-[var(--text-main)] leading-tight mb-1">
+          <a href={result.url} target="_blank" rel="noopener noreferrer" className="hover:text-[var(--accent)] hover:underline">
+            {result.title || result.url}
+          </a>
+        </h3>
+        <TelegramPostPreview 
+          text={result.text || result.highlights?.[0] || 'No description available.'} 
+          url={result.url} 
+        />
+      </div>
+    </div>
+    
+    <div className="flex items-center justify-end space-x-2 pt-2 border-t border-[var(--border)]">
+      <button 
+        onClick={() => handleFindSimilar(result.url)}
+        className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-[var(--bg-color)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
+      >
+        Find Similar
+      </button>
+      <button 
+        onClick={() => handleAdd(result)}
+        disabled={addedUrls[result.url]}
+        className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center space-x-1 ${
+          addedUrls[result.url] 
+            ? 'bg-green-500/20 text-green-500 border border-green-500/30' 
+            : 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)] hover:bg-[var(--accent)]/20'
+        }`}
+      >
+        {addedUrls[result.url] ? (
+          <><span>Added</span></>
+        ) : (
+          <>
+            <Plus size={14} />
+            <span>Add</span>
+          </>
+        )}
+      </button>
+    </div>
+  </motion.div>
+));
+
 function DiscoverySearchWindow({ channel, onBack }: { channel: Channel, onBack?: () => void }) {
   const [query, setQuery] = useState(channel.name.startsWith('Deep Web Search: ') ? channel.name.replace('Deep Web Search: ', '') : '');
   const [results, setResults] = useState<ExaResult[]>([]);
@@ -813,10 +875,10 @@ function DiscoverySearchWindow({ channel, onBack }: { channel: Channel, onBack?:
       const { decryptApiKey } = await import('../lib/apiKeyCrypto');
       const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
       const agents = await getAgents();
-      const feedAgent = agents.find(a => a.isFeed);
+      const channelerAgent = agents.find(a => a.isChanneler);
       
       const contentToAnalyze = results.map(r => `Title: ${r.title}\nURL: ${r.url}\nSnippet: ${r.text || r.highlights?.[0] || ''}`).join('\n\n');
-      const stream = await generateChannelerAnalysis(contentToAnalyze, promptStrategy, { apiKey, agent: feedAgent });
+      const stream = await generateChannelerAnalysis(contentToAnalyze, promptStrategy, { apiKey, agent: channelerAgent });
       
       for await (const chunk of stream) {
         if (chunk.text) {
@@ -889,7 +951,7 @@ function DiscoverySearchWindow({ channel, onBack }: { channel: Channel, onBack?:
           <button 
             type="button"
             onClick={() => setShowChanneler(!showChanneler)}
-            className={`p-3 sm:px-4 sm:py-3 rounded-2xl font-bold uppercase tracking-wider transition-all flex items-center justify-center ${showChanneler ? 'bg-green-500/20 text-green-500 border border-green-500/30' : 'bg-[var(--panel-bg)] text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text-main)]'}`}
+            className={`p-3 sm:px-4 sm:py-3 rounded-2xl font-bold uppercase tracking-wider transition-all flex items-center justify-center ${showChanneler ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/30' : 'bg-[var(--panel-bg)] text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text-main)]'}`}
             title="Ask Agent"
           >
             <Bot size={20} className="sm:mr-2" />
@@ -919,60 +981,14 @@ function DiscoverySearchWindow({ channel, onBack }: { channel: Channel, onBack?:
 
         <AnimatePresence>
           {results.map((result, idx) => (
-            <motion.div 
+            <ResultItem 
               key={result.url}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2, delay: idx * 0.05 }}
-              className="p-4 sm:p-5 bg-[var(--panel-bg)] border border-[var(--border)] rounded-2xl hover:border-[var(--text-muted)] transition-colors flex flex-col space-y-3 shadow-sm"
-            >
-              <div className="flex justify-between items-start gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[var(--bg-color)] border border-[var(--border)] text-[var(--text-muted)]">
-                      {getSourceTypeBadge(result.url)}
-                    </span>
-                  </div>
-                  <h3 className="text-base sm:text-lg font-bold text-[var(--text-main)] leading-tight mb-1">
-                    <a href={result.url} target="_blank" rel="noopener noreferrer" className="hover:text-[var(--accent)] hover:underline">
-                      {result.title || result.url}
-                    </a>
-                  </h3>
-                  <TelegramPostPreview 
-                    text={result.text || result.highlights?.[0] || 'No description available.'} 
-                    url={result.url} 
-                  />
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-[var(--border)]">
-                <button 
-                  onClick={() => handleFindSimilar(result.url)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-[var(--bg-color)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"
-                >
-                  Find Similar
-                </button>
-                <button 
-                  onClick={() => handleAdd(result)}
-                  disabled={addedUrls[result.url]}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center space-x-1 ${
-                    addedUrls[result.url] 
-                      ? 'bg-green-500/20 text-green-500 border border-green-500/30' 
-                      : 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)] hover:bg-[var(--accent)]/20'
-                  }`}
-                >
-                  {addedUrls[result.url] ? (
-                    <><span>Added</span></>
-                  ) : (
-                    <>
-                      <Plus size={14} />
-                      <span>Add</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </motion.div>
+              result={result}
+              idx={idx}
+              addedUrls={addedUrls}
+              handleFindSimilar={handleFindSimilar}
+              handleAdd={handleAdd}
+            />
           ))}
         </AnimatePresence>
 
@@ -997,23 +1013,23 @@ function DiscoverySearchWindow({ channel, onBack }: { channel: Channel, onBack?:
 
       {/* Channeler Panel */}
       {showChanneler && (
-        <div className="w-80 sm:w-96 border-l border-[var(--border)] bg-[var(--panel-bg)] flex flex-col absolute right-0 top-0 bottom-0 z-20 shadow-xl animate-in slide-in-from-right">
-          <div className="p-4 border-b border-[var(--border)] flex items-center justify-between bg-green-900/10">
-            <h2 className="font-bold text-green-500 uppercase tracking-widest flex items-center text-sm">
+        <div className="w-80 sm:w-96 border-l border-[var(--border)] bg-[var(--panel-bg)] flex flex-col absolute right-0 top-0 bottom-0 z-20 shadow-xl animate-in slide-in-from-right duration-200">
+          <div className="p-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--accent)]/10">
+            <h2 className="font-bold text-[var(--accent)] uppercase tracking-widest flex items-center text-sm">
               <Bot size={16} className="mr-2" />
               Channeler AI
             </h2>
-            <button onClick={() => setShowChanneler(false)} className="text-[var(--text-muted)] hover:text-[var(--text-main)]">
+            <button onClick={() => setShowChanneler(false)} className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors">
               <ChevronRight size={20} />
             </button>
           </div>
           
-          <div className="p-4 border-b border-[var(--border)] space-y-3">
+          <div className="p-4 border-b border-[var(--border)] space-y-3 bg-[var(--panel-bg)]">
             <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Analysis Strategy</label>
             <select 
               value={promptStrategy}
               onChange={(e) => setPromptStrategy(e.target.value)}
-              className="w-full bg-[var(--bg-color)] border border-[var(--border)] rounded-xl p-2 text-sm focus:outline-none focus:border-green-500"
+              className="w-full bg-[var(--bg-color)] border border-[var(--border)] rounded-xl p-2 text-sm focus:outline-none focus:border-[var(--accent)] text-[var(--text-main)] transition-colors"
             >
               <option>Objective Summary (Default)</option>
               <option>Identify Bias & Rhetoric</option>
@@ -1024,7 +1040,7 @@ function DiscoverySearchWindow({ channel, onBack }: { channel: Channel, onBack?:
             <button 
               onClick={runChannelerAnalysis}
               disabled={isAnalyzing || results.length === 0}
-              className="w-full p-2 rounded-xl bg-green-500 text-black font-bold uppercase tracking-wider text-xs hover:opacity-90 disabled:opacity-50 flex items-center justify-center"
+              className="w-full p-2 rounded-xl bg-[var(--accent)] text-[var(--bg-color)] font-bold uppercase tracking-wider text-xs hover:opacity-90 disabled:opacity-50 flex items-center justify-center transition-all shadow-sm"
             >
               {isAnalyzing ? <RefreshCw size={14} className="animate-spin mr-2" /> : <Zap size={14} className="mr-2" />}
               {isAnalyzing ? 'Analyzing...' : 'Run Analysis'}
@@ -1033,10 +1049,8 @@ function DiscoverySearchWindow({ channel, onBack }: { channel: Channel, onBack?:
 
           <div className="flex-1 overflow-y-auto p-4 bg-[var(--bg-color)]">
             {analysisResult ? (
-              <div className="prose prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-[var(--panel-bg)] prose-pre:border prose-pre:border-[var(--border)]">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {analysisResult}
-                </ReactMarkdown>
+              <div className="markdown-body text-sm">
+                <MemoizedMarkdown content={analysisResult} />
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-[var(--text-muted)] opacity-50 text-center px-4">
@@ -1050,7 +1064,7 @@ function DiscoverySearchWindow({ channel, onBack }: { channel: Channel, onBack?:
             <div className="p-4 border-t border-[var(--border)] bg-[var(--panel-bg)]">
               <button 
                 onClick={pushToObsidian}
-                className="w-full p-2 rounded-xl bg-[var(--bg-color)] border border-[var(--border)] text-[var(--text-main)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors flex items-center justify-center text-xs font-bold uppercase tracking-wider"
+                className="w-full p-2 rounded-xl bg-[var(--bg-color)] border border-[var(--border)] text-[var(--text-main)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors flex items-center justify-center text-xs font-bold uppercase tracking-wider shadow-sm"
               >
                 <Download size={14} className="mr-2" />
                 Push to Obsidian
@@ -1255,9 +1269,9 @@ export function ChannelView({ channel, onBack }: { channel: Channel, onBack?: ()
       const { decryptApiKey } = await import('../lib/apiKeyCrypto');
       const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
       const agents = await getAgents();
-      const feedAgent = agents.find(a => a.isFeed);
+      const channelerAgent = agents.find(a => a.isChanneler);
       
-      const stream = await generateChannelerAnalysis(feedContent, promptStrategy, { apiKey, agent: feedAgent });
+      const stream = await generateChannelerAnalysis(feedContent, promptStrategy, { apiKey, agent: channelerAgent });
       
       for await (const chunk of stream) {
         if (chunk.text) {
@@ -1370,7 +1384,7 @@ export function ChannelView({ channel, onBack }: { channel: Channel, onBack?: ()
 
             <button 
               onClick={() => setShowChanneler(!showChanneler)}
-              className={`p-2 rounded-lg transition-colors ${showChanneler ? 'bg-green-500/20 text-green-500' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+              className={`p-2 rounded-lg transition-colors ${showChanneler ? 'bg-[var(--accent)]/20 text-[var(--accent)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
               title="Toggle Channeler AI"
             >
               <Bot size={20} />
@@ -1386,11 +1400,11 @@ export function ChannelView({ channel, onBack }: { channel: Channel, onBack?: ()
               <p>Connecting to stream...</p>
             </div>
           ) : (
-            <div className="prose prose-invert max-w-none" style={{ fontSize: `${textSize}px` }}>
-              <ReactMarkdown 
-                remarkPlugins={[remarkGfm]}
+            <div className="markdown-body max-w-none" style={{ fontSize: `${textSize}px` }}>
+              <MemoizedMarkdown 
+                content={feedContent}
                 components={{
-                  a: ({node, href, ...props}) => {
+                  a: ({node, href, ...props}: any) => {
                     if (href?.startsWith('gopher://')) {
                       return (
                         <a 
@@ -1416,9 +1430,7 @@ export function ChannelView({ channel, onBack }: { channel: Channel, onBack?: ()
                     );
                   }
                 }}
-              >
-                {feedContent}
-              </ReactMarkdown>
+              />
             </div>
           )}
         </div>
@@ -1426,23 +1438,23 @@ export function ChannelView({ channel, onBack }: { channel: Channel, onBack?: ()
 
       {/* Channeler Panel */}
       {showChanneler && (
-        <div className="w-80 sm:w-96 border-l border-[var(--border)] bg-[var(--panel-bg)] flex flex-col absolute right-0 top-0 bottom-0 z-20 shadow-xl animate-in slide-in-from-right">
-          <div className="p-4 border-b border-[var(--border)] flex items-center justify-between bg-green-900/10">
-            <h3 className="font-bold text-green-500 flex items-center">
+        <div className="w-80 sm:w-96 border-l border-[var(--border)] bg-[var(--panel-bg)] flex flex-col absolute right-0 top-0 bottom-0 z-20 shadow-xl animate-in slide-in-from-right duration-200">
+          <div className="p-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--accent)]/10">
+            <h3 className="font-bold text-[var(--accent)] flex items-center uppercase tracking-widest text-sm">
               <Bot size={16} className="mr-2" /> Channeler
             </h3>
-            <button onClick={() => setShowChanneler(false)} className="text-[var(--text-muted)] hover:text-[var(--text-main)]">
+            <button onClick={() => setShowChanneler(false)} className="text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors">
               <ChevronRight size={16} />
             </button>
           </div>
           
-          <div className="p-4 space-y-4 flex-1 overflow-y-auto">
+          <div className="p-4 space-y-4 flex-1 overflow-y-auto bg-[var(--panel-bg)]">
             <div className="space-y-2">
               <label className="text-xs uppercase tracking-wider text-[var(--text-muted)]">Prompt Strategy</label>
               <select 
                 value={promptStrategy}
                 onChange={(e) => setPromptStrategy(e.target.value)}
-                className="w-full bg-[var(--bg-color)] border border-[var(--border)] rounded-lg p-2 text-sm focus:border-green-500 outline-none"
+                className="w-full bg-[var(--bg-color)] border border-[var(--border)] rounded-lg p-2 text-sm focus:border-[var(--accent)] text-[var(--text-main)] outline-none transition-colors"
               >
                 <option>Objective Summary (Default)</option>
                 <option>Fact Check & Cross-Reference</option>
@@ -1452,7 +1464,7 @@ export function ChannelView({ channel, onBack }: { channel: Channel, onBack?: ()
               <button 
                 onClick={runChannelerAnalysis}
                 disabled={isAnalyzing || !feedContent}
-                className="w-full py-2 bg-green-600/20 hover:bg-green-600/30 text-green-500 border border-green-600/50 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-2 bg-[var(--accent)]/20 hover:bg-[var(--accent)]/30 text-[var(--accent)] border border-[var(--accent)]/50 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isAnalyzing ? (
                   <>
@@ -1467,19 +1479,17 @@ export function ChannelView({ channel, onBack }: { channel: Channel, onBack?: ()
             </div>
 
             <div className="flex-1 border border-[var(--border)] rounded-xl bg-[var(--bg-color)] p-4 min-h-[300px] overflow-y-auto">
-              <div className="prose prose-invert prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {analysisResult || `> **Channeler Analysis**\n\nWaiting for input stream...`}
-                </ReactMarkdown>
+              <div className="markdown-body text-sm">
+                <MemoizedMarkdown content={analysisResult || `> **Channeler Analysis**\n\nWaiting for input stream...`} />
               </div>
             </div>
           </div>
 
-          <div className="p-4 border-t border-[var(--border)]">
+          <div className="p-4 border-t border-[var(--border)] bg-[var(--panel-bg)]">
             <button 
               onClick={pushToObsidian}
               disabled={!analysisResult}
-              className="w-full py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold text-sm flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-[var(--accent)] hover:opacity-90 text-[var(--bg-color)] rounded-xl font-bold text-sm flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               <Download size={16} className="mr-2" /> Push to Obsidian
             </button>
