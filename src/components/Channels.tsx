@@ -632,6 +632,16 @@ function TelegramPostPreview({ text, url, channelName }: { text: string, url: st
 }
 
 // --- Discovery Search Window Component ---
+const getSourceTypeBadge = (url: string) => {
+  if (url.includes('t.me/s/')) return <><Icon icon="logos:telegram" className="inline mr-1" /> Public Channel</>;
+  if (url.includes('t.me/')) return <><Icon icon="logos:telegram" className="inline mr-1" /> Group / Private</>;
+  if (url.includes('substack.com')) return <><Icon icon="simple-icons:substack" className="inline mr-1 text-[#FF6719]" /> Newsletter</>;
+  if (url.includes('x.com') || url.includes('twitter.com')) return <><Icon icon="ri:twitter-x-fill" className="inline mr-1" /> X Profile</>;
+  if (url.includes('reddit.com/r/')) return <><Icon icon="logos:reddit-icon" className="inline mr-1" /> Subreddit</>;
+  if (url.includes('github.com')) return <><Icon icon="mdi:github" className="inline mr-1" /> Repository</>;
+  return <><Globe size={12} className="inline mr-1" /> Web Page</>;
+};
+
 const ResultItem = React.memo(({ result, idx, addedUrls, handleFindSimilar, handleAdd }: any) => (
   <motion.div 
     initial={{ opacity: 0, y: 20 }}
@@ -852,16 +862,6 @@ function DiscoverySearchWindow({ channel, onBack }: { channel: Channel, onBack?:
     });
 
     setAddedUrls(prev => ({ ...prev, [result.url]: true }));
-  };
-
-  const getSourceTypeBadge = (url: string) => {
-    if (url.includes('t.me/s/')) return <><Icon icon="logos:telegram" className="inline mr-1" /> Public Channel</>;
-    if (url.includes('t.me/')) return <><Icon icon="logos:telegram" className="inline mr-1" /> Group / Private</>;
-    if (url.includes('substack.com')) return <><Icon icon="simple-icons:substack" className="inline mr-1 text-[#FF6719]" /> Newsletter</>;
-    if (url.includes('x.com') || url.includes('twitter.com')) return <><Icon icon="ri:twitter-x-fill" className="inline mr-1" /> X Profile</>;
-    if (url.includes('reddit.com/r/')) return <><Icon icon="logos:reddit-icon" className="inline mr-1" /> Subreddit</>;
-    if (url.includes('github.com')) return <><Icon icon="mdi:github" className="inline mr-1" /> Repository</>;
-    return <><Globe size={12} className="inline mr-1" /> Web Page</>;
   };
 
   const runChannelerAnalysis = async () => {

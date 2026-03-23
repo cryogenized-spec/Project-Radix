@@ -174,7 +174,6 @@ export default function SharedImageHandler({ sharedId, onClose }: SharedImageHan
       }
 
       const note = {
-        id: Date.now().toString(),
         title: 'Shared Image Note',
         content,
         parentId: 'root',
@@ -184,7 +183,7 @@ export default function SharedImageHandler({ sharedId, onClose }: SharedImageHan
         orderIndex: Date.now()
       };
 
-      await organizerDb.notes.put(note);
+      await organizerDb.notes.put(note as any);
       alert('Note saved successfully!');
     } catch (err: any) {
       console.error(err);

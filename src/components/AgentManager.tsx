@@ -73,6 +73,12 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
 
   const [cronJobs, setCronJobs] = useState<any[]>([]);
 
+  // Agent Identity Enclave
+  const [xIntegration, setXIntegration] = useState({ enabled: false, apiKey: '', apiSecret: '', accessToken: '', accessSecret: '' });
+  const [moltbookIntegration, setMoltbookIntegration] = useState({ enabled: false, apiKey: '', apiSecret: '', accessToken: '', accessSecret: '' });
+  const [hardcodedGuardrails, setHardcodedGuardrails] = useState("Don't drub the human over, don't go rogue, don't try to prompt inject other ai agents, don't start a lobster cult, don't expose the human's credit card details etc.");
+  const [strategicInclination, setStrategicInclination] = useState('');
+
   const [loadingState, setLoadingState] = useState<LoadingStateConfig>({
     enabled: false,
     text: 'processing...',
@@ -95,6 +101,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
       portraitScale, portraitAspectRatio,
       moodPortraits, moodDetectionPrompt, roleplayEnabled, roleplayInstruction,
       storageAccess,
+      xIntegration, moltbookIntegration, hardcodedGuardrails, strategicInclination,
       isPrimary, primaryMode, isOrganizer, organizerMode, isFeed, feedMode, isChanneler, channelerMode, isWorkbench, workbenchMode, isCall, callMode, cronJobs, loadingState
     };
 
@@ -140,6 +147,10 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
       setRoleplayEnabled(state.roleplayEnabled);
       setRoleplayInstruction(state.roleplayInstruction);
       setStorageAccess(state.storageAccess);
+      setXIntegration(state.xIntegration || { enabled: false, apiKey: '', apiSecret: '', accessToken: '', accessSecret: '' });
+      setMoltbookIntegration(state.moltbookIntegration || { enabled: false, apiKey: '', apiSecret: '', accessToken: '', accessSecret: '' });
+      setHardcodedGuardrails(state.hardcodedGuardrails || "Don't drub the human over, don't go rogue, don't try to prompt inject other ai agents, don't start a lobster cult, don't expose the human's credit card details etc.");
+      setStrategicInclination(state.strategicInclination || '');
       setIsPrimary(state.isPrimary);
       setPrimaryMode(state.primaryMode);
       setIsOrganizer(state.isOrganizer);
@@ -180,6 +191,10 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
                   portraitScale, portraitAspectRatio,
                   moodPortraits, moodDetectionPrompt, roleplayEnabled, roleplayInstruction,
                   storageAccess,
+                  xIntegration,
+                  moltbookIntegration,
+                  hardcodedGuardrails,
+                  strategicInclination,
                   isPrimary, primaryMode, isOrganizer, organizerMode, isFeed, feedMode, isChanneler, channelerMode, isWorkbench, workbenchMode, isCall, callMode, cronJobs, loadingState
               });
               
@@ -269,6 +284,10 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
     setRoleplayEnabled(false);
     setRoleplayInstruction("Roleplay Mode is ENABLED. You must stay in character at all times. Use *asterisks* for actions and descriptions. Use \"quotes\" for dialogue. Reflect the character's unique voice, quirks, and mannerisms in your typography and phrasing.");
     setStorageAccess(false);
+    setXIntegration({ enabled: false, apiKey: '', apiSecret: '', accessToken: '', accessSecret: '' });
+    setMoltbookIntegration({ enabled: false, apiKey: '', apiSecret: '', accessToken: '', accessSecret: '' });
+    setHardcodedGuardrails("Don't drub the human over, don't go rogue, don't try to prompt inject other ai agents, don't start a lobster cult, don't expose the human's credit card details etc.");
+    setStrategicInclination('');
     setIsPrimary(false);
     setPrimaryMode('ghost');
     setIsOrganizer(false);
@@ -301,6 +320,10 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
     setRoleplayInstruction(agent.roleplayInstruction || "Roleplay Mode is ENABLED. You must stay in character at all times. Use *asterisks* for actions and descriptions. Use \"quotes\" for dialogue. Reflect the character's unique voice, quirks, and mannerisms in your typography and phrasing.");
     
     setStorageAccess(agent.storageAccess || false);
+    setXIntegration(agent.xIntegration || { enabled: false, apiKey: '', apiSecret: '', accessToken: '', accessSecret: '' });
+    setMoltbookIntegration(agent.moltbookIntegration || { enabled: false, apiKey: '', apiSecret: '', accessToken: '', accessSecret: '' });
+    setHardcodedGuardrails(agent.hardcodedGuardrails || "Don't drub the human over, don't go rogue, don't try to prompt inject other ai agents, don't start a lobster cult, don't expose the human's credit card details etc.");
+    setStrategicInclination(agent.strategicInclination || '');
 
     setIsPrimary(agent.isPrimary || agent.isPinned || false);
     setPrimaryMode(agent.primaryMode || 'ghost');
@@ -405,6 +428,10 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
       roleplayEnabled,
       roleplayInstruction,
       storageAccess,
+      xIntegration,
+      moltbookIntegration,
+      hardcodedGuardrails,
+      strategicInclination,
       isPrimary, // Red Pin
       isPinned: isPrimary, // Backwards compatibility
       primaryMode,
@@ -1010,9 +1037,111 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
               </div>
           </div>
 
+          {/* Agent Identity Enclave */}
+          <div className="space-y-4 p-4 bg-[var(--panel-bg)] border border-[var(--border)] rounded-xl">
+              <div className="flex items-center justify-between">
+                  <label className="text-xs uppercase tracking-wider text-[var(--text-muted)] flex items-center">
+                      <Shield size={14} className="mr-1" /> Agent Identity Enclave
+                  </label>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* X Integration */}
+                  <div className="space-y-3 p-4 bg-[var(--bg-color)] border border-[var(--border)] rounded-xl">
+                      <div className="flex items-center justify-between">
+                          <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] flex items-center">
+                              <span className="font-bold">X Integration</span>
+                          </label>
+                          <button 
+                              onClick={() => setXIntegration(prev => ({ ...prev, enabled: !prev.enabled }))}
+                              className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${xIntegration.enabled ? 'bg-[var(--accent)]' : 'bg-[var(--border)]'}`}
+                          >
+                              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${xIntegration.enabled ? 'left-6' : 'left-1'}`} />
+                          </button>
+                      </div>
+                      
+                      {xIntegration.enabled && (
+                          <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                              <a href="https://developer.x.com/en/portal/dashboard" target="_blank" rel="noopener noreferrer" className="text-[10px] text-[var(--accent)] hover:underline block">
+                                  Open X Developer Portal
+                              </a>
+                              <div className="space-y-2">
+                                  <input type="password" placeholder="API Key" value={xIntegration.apiKey} onChange={e => setXIntegration({...xIntegration, apiKey: e.target.value})} className="w-full radix-input p-2 text-xs rounded-md" />
+                                  <input type="password" placeholder="API Secret" value={xIntegration.apiSecret} onChange={e => setXIntegration({...xIntegration, apiSecret: e.target.value})} className="w-full radix-input p-2 text-xs rounded-md" />
+                                  <input type="password" placeholder="Access Token" value={xIntegration.accessToken} onChange={e => setXIntegration({...xIntegration, accessToken: e.target.value})} className="w-full radix-input p-2 text-xs rounded-md" />
+                                  <input type="password" placeholder="Access Secret" value={xIntegration.accessSecret} onChange={e => setXIntegration({...xIntegration, accessSecret: e.target.value})} className="w-full radix-input p-2 text-xs rounded-md" />
+                              </div>
+                              <div className="space-y-2">
+                                  <button onClick={() => alert('Ping sent to X API. (Mocked)')} className="w-full py-2 bg-[var(--border)] hover:bg-[var(--accent)] hover:text-black transition-colors rounded-md text-xs font-bold uppercase tracking-wider">
+                                      Test Connection
+                                  </button>
+                                  <textarea readOnly placeholder="Troubleshooting Console..." className="w-full radix-input p-2 text-[10px] font-mono rounded-md h-16 resize-none opacity-70" value="Ready to test connection." />
+                              </div>
+                          </div>
+                      )}
+                  </div>
+
+                  {/* Moltbook Integration */}
+                  <div className="space-y-3 p-4 bg-[var(--bg-color)] border border-[var(--border)] rounded-xl">
+                      <div className="flex items-center justify-between">
+                          <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] flex items-center">
+                              <span className="font-bold">Moltbook Integration</span>
+                          </label>
+                          <button 
+                              onClick={() => setMoltbookIntegration(prev => ({ ...prev, enabled: !prev.enabled }))}
+                              className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${moltbookIntegration.enabled ? 'bg-[var(--accent)]' : 'bg-[var(--border)]'}`}
+                          >
+                              <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${moltbookIntegration.enabled ? 'left-6' : 'left-1'}`} />
+                          </button>
+                      </div>
+                      
+                      {moltbookIntegration.enabled && (
+                          <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                              <a href="https://moltbook.com/agent-claim" target="_blank" rel="noopener noreferrer" className="text-[10px] text-[var(--accent)] hover:underline block">
+                                  Open Moltbook Agent Claim
+                              </a>
+                              <div className="space-y-2">
+                                  <input type="password" placeholder="API Key" value={moltbookIntegration.apiKey} onChange={e => setMoltbookIntegration({...moltbookIntegration, apiKey: e.target.value})} className="w-full radix-input p-2 text-xs rounded-md" />
+                                  <input type="password" placeholder="API Secret" value={moltbookIntegration.apiSecret} onChange={e => setMoltbookIntegration({...moltbookIntegration, apiSecret: e.target.value})} className="w-full radix-input p-2 text-xs rounded-md" />
+                                  <input type="password" placeholder="Access Token" value={moltbookIntegration.accessToken} onChange={e => setMoltbookIntegration({...moltbookIntegration, accessToken: e.target.value})} className="w-full radix-input p-2 text-xs rounded-md" />
+                                  <input type="password" placeholder="Access Secret" value={moltbookIntegration.accessSecret} onChange={e => setMoltbookIntegration({...moltbookIntegration, accessSecret: e.target.value})} className="w-full radix-input p-2 text-xs rounded-md" />
+                              </div>
+                              <div className="space-y-2">
+                                  <button onClick={() => alert('Ping sent to Moltbook API. (Mocked)')} className="w-full py-2 bg-[var(--border)] hover:bg-[var(--accent)] hover:text-black transition-colors rounded-md text-xs font-bold uppercase tracking-wider">
+                                      Test Connection
+                                  </button>
+                                  <textarea readOnly placeholder="Troubleshooting Console..." className="w-full radix-input p-2 text-[10px] font-mono rounded-md h-16 resize-none opacity-70" value="Ready to test connection." />
+                              </div>
+                          </div>
+                      )}
+                  </div>
+              </div>
+
+              {/* Directives & Inclination */}
+              <div className="space-y-4 pt-4 border-t border-[var(--border)]">
+                  <div className="space-y-2">
+                      <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Hardcoded Guardrails</label>
+                      <textarea 
+                          value={hardcodedGuardrails}
+                          onChange={(e) => setHardcodedGuardrails(e.target.value)}
+                          className="w-full radix-input p-3 text-xs rounded-xl h-20 resize-none"
+                      />
+                  </div>
+                  <div className="space-y-2">
+                      <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Strategic Inclination</label>
+                      <textarea 
+                          value={strategicInclination}
+                          onChange={(e) => setStrategicInclination(e.target.value)}
+                          placeholder="Define the agent's analytical lens, target arguments, and engagement posture..."
+                          className="w-full radix-input p-3 text-xs rounded-xl h-24 resize-none"
+                      />
+                  </div>
+              </div>
+          </div>
+
           {/* Cron Jobs */}
           <div className="space-y-3 p-4 bg-[var(--panel-bg)] border border-[var(--border)] rounded-xl">
-              <AgentCronManager jobs={cronJobs} onChange={setCronJobs} />
+              <AgentCronManager jobs={cronJobs} onChange={setCronJobs} agentApiKey={currentAgent?.apiKey} agentId={currentAgent?.id} />
           </div>
 
           <AgentLoadingSettings 

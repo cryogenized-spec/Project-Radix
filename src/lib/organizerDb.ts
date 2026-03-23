@@ -176,7 +176,11 @@ export class OrganizerDatabase extends Dexie {
     if (existing && existing.id) {
       await this.settings.put({ ...existing, ...settings, id: existing.id });
     } else {
-      await this.settings.put(settings);
+      const newSettings = { ...settings };
+      if (newSettings.id === undefined) {
+        delete newSettings.id;
+      }
+      await this.settings.put(newSettings);
     }
     window.dispatchEvent(new Event('settings:updated'));
   }

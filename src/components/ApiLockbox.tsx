@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Key, Save, Shield, Check, Play, Settings2, MessageSquare, Lock, BrainCircuit, Mic, RefreshCw, Bot, Unlock, Undo, Redo, Zap, Mail, Image as ImageIcon } from 'lucide-react';
 import { Icon } from '@iconify/react';
-import { getSetting, setSetting, getAgents, addAgent } from '../lib/db';
+import { getSetting, setSetting, getAgents, addAgent, getExaApiUsage } from '../lib/db';
 import { GoogleGenAI } from '@google/genai';
 import { encryptApiKey, decryptApiKey } from '../lib/apiKeyCrypto';
 import { ModelSelector } from './ModelSelector';
@@ -30,9 +30,9 @@ const GOOGLE_MODELS = [
   'gemini-3.1-flash-lite-preview',
   'gemini-3-flash-preview',
   'gemini-3.1-pro-preview',
-  'gemini-3-pro-preview',
-  'gemini-2.5-pro',
-  'gemini-2.5-flash',
+  'gemini-flash-latest',
+  'gemini-2.5-flash-image',
+  'gemini-3.1-flash-image-preview',
   'gemini-nano'
 ];
 
@@ -50,7 +50,7 @@ const PROVIDER_MODELS: Record<string, string[]> = {
 const PROVIDER_API_PATHS: Record<string, string> = {
   'Anthropic': 'https://api.anthropic.com/v1',
   'DeepSeek': 'https://api.deepseek.com/v1',
-  'Google': 'https://generativelanguage.googleapis.com/v1beta',
+  'Google': 'https://generativelanguage.googleapis.com',
   'Moonshot': 'https://api.moonshot.cn/v1',
   'OpenAI': 'https://api.openai.com/v1',
   'xAI': 'https://api.x.ai/v1',
@@ -187,6 +187,7 @@ export default function ApiLockbox() {
   const [smeeUrl, setSmeeUrl] = useState('');
   const [exaApiKey, setExaApiKey] = useState('');
   const [hfApiKey, setHfApiKey] = useState('');
+  const [exaApiUsage, setExaApiUsage] = useState(0);
 
   // Undo/Redo History
   const historyRef = useRef<any[]>([]);
@@ -331,7 +332,9 @@ export default function ApiLockbox() {
       setExaApiKey(await decryptApiKey(exaKey || ''));
       
       const hfKey = await getSetting('hfApiKey');
+      const exaUsage = await getExaApiUsage();
       setHfApiKey(await decryptApiKey(hfKey || ''));
+      setExaApiUsage(exaUsage);
     } else {
       const agent = agents.find(a => a.id === agentId);
       if (agent) {
@@ -933,6 +936,13 @@ export default function ApiLockbox() {
               className="w-full radix-input p-2.5 sm:p-3 text-xs sm:text-sm rounded-xl"
             />
             <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)]">Required for the Discovery Engine and web search.</p>
+          </div>
+          <div className="space-y-1.5 sm:space-y-2 flex flex-col justify-center items-center bg-[var(--bg-color)] rounded-xl p-4 border border-[var(--border)]">
+            <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Exa Neural Searches</label>
+            <div className="text-2xl font-mono font-bold text-[var(--accent)]">
+              {exaApiUsage} <span className="text-sm text-[var(--text-muted)]">/ 1,000</span>
+            </div>
+            <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)] text-center">Resets on the 1st of every month.</p>
           </div>
         </div>
       </section>

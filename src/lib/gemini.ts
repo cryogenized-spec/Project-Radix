@@ -1,6 +1,18 @@
 import { GoogleGenAI, ThinkingLevel, Content, Part } from '@google/genai';
 import { fsManager } from './filesystem';
 
+function getAIClient(settings: any) {
+  const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
+  let baseUrl = settings.apiUrl;
+  
+  // Fix for saved settings that might have the old v1beta path
+  if (baseUrl === 'https://generativelanguage.googleapis.com/v1beta' || baseUrl === 'https://generativelanguage.googleapis.com') {
+    baseUrl = undefined; // Let the SDK use its default
+  }
+
+  return new GoogleGenAI(baseUrl ? { apiKey, httpOptions: { baseUrl } } : { apiKey });
+}
+
 export async function generateAIResponse(prompt: string, mode: 'ghost' | 'participant', context: any[], settings: any) {
   let fullText = "";
   for await (const chunk of generateAIResponseStream(prompt, mode, context, settings)) {
@@ -10,8 +22,7 @@ export async function generateAIResponse(prompt: string, mode: 'ghost' | 'partic
 }
 
 export async function* generateAIResponseStream(prompt: string, mode: 'ghost' | 'participant', context: any[], settings: any) {
-  const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
-  const ai = new GoogleGenAI(settings.apiUrl ? { apiKey, httpOptions: { baseUrl: settings.apiUrl } } : { apiKey });
+  const ai = getAIClient(settings);
 
   const systemInstruction = settings.systemInstruction || (mode === 'ghost' 
     ? (settings.privatePersona || "You are RADIX Ghost, a private advisor. Analyze the chat and advise the user privately. Be concise, analytical, and industrial in tone. Do not filter yourself.")
@@ -188,8 +199,7 @@ export async function* generateAIResponseStream(prompt: string, mode: 'ghost' | 
 }
 
 export async function generateRewrite(text: string, style: string, settings: any) {
-  const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
-  const ai = new GoogleGenAI(settings.apiUrl ? { apiKey, httpOptions: { baseUrl: settings.apiUrl } } : { apiKey });
+  const ai = getAIClient(settings);
   
   const prompt = `Rewrite the following text to be ${style}. Return only the rewritten text.\n\nText: "${text}"`;
   
@@ -209,8 +219,7 @@ export async function generateRewrite(text: string, style: string, settings: any
 }
 
 export async function generateFactCheck(text: string, settings: any) {
-  const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
-  const ai = new GoogleGenAI(settings.apiUrl ? { apiKey, httpOptions: { baseUrl: settings.apiUrl } } : { apiKey });
+  const ai = getAIClient(settings);
   
   const prompt = `Fact check the following text. Be concise and analytical. If true, state "VERIFIED". If false or misleading, explain why.\n\nText: "${text}"`;
   
@@ -230,8 +239,7 @@ export async function generateFactCheck(text: string, settings: any) {
 }
 
 export async function generateTranslation(text: string, targetLang: string, settings: any) {
-  const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
-  const ai = new GoogleGenAI(settings.apiUrl ? { apiKey, httpOptions: { baseUrl: settings.apiUrl } } : { apiKey });
+  const ai = getAIClient(settings);
   
   const prompt = `Translate the following text to ${targetLang}. Return only the translated text.\n\nText: "${text}"`;
   
@@ -251,8 +259,7 @@ export async function generateTranslation(text: string, targetLang: string, sett
 }
 
 export async function generateChannelerAnalysis(content: string, promptStrategy: string, settings: any) {
-  const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
-  const ai = new GoogleGenAI(settings.apiUrl ? { apiKey, httpOptions: { baseUrl: settings.apiUrl } } : { apiKey });
+  const ai = getAIClient(settings);
   
   let systemPrompt = "You are the Channeler, an elite intelligence analyst for Project RADIX. Your goal is to extract high-signal intelligence from raw data streams.";
   if (settings.agent) {
@@ -299,8 +306,7 @@ export async function generateChannelerAnalysis(content: string, promptStrategy:
 }
 
 export async function generateVisualAnalysis(base64Image: string, mimeType: string, settings: any) {
-  const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
-  const ai = new GoogleGenAI(settings.apiUrl ? { apiKey, httpOptions: { baseUrl: settings.apiUrl } } : { apiKey });
+  const ai = getAIClient(settings);
   
   try {
     const response = await ai.models.generateContent({
@@ -334,7 +340,11 @@ export async function transcribeAudio(base64Audio: string, mimeType: string, set
     return "ERR: NO_API_KEY";
   }
 
-  const ai = new GoogleGenAI(settings.apiUrl ? { apiKey, httpOptions: { baseUrl: settings.apiUrl } } : { apiKey });
+  let baseUrl = settings.apiUrl;
+  if (baseUrl === 'https://generativelanguage.googleapis.com/v1beta' || baseUrl === 'https://generativelanguage.googleapis.com') {
+    baseUrl = undefined;
+  }
+  const ai = new GoogleGenAI(baseUrl ? { apiKey, httpOptions: { baseUrl } } : { apiKey });
   
   try {
     // Using gemini-3.1-flash-lite-preview as it is the standard model for this environment
@@ -368,7 +378,7 @@ export async function executePromptOnNote(noteContent: string, prompt: string, s
   const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
   if (!apiKey) return { markdown: noteContent, suggestions: [] };
   
-  const ai = new GoogleGenAI(settings.apiUrl ? { apiKey, httpOptions: { baseUrl: settings.apiUrl } } : { apiKey });
+  const ai = getAIClient(settings);
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3.1-flash-lite-preview',
@@ -402,7 +412,7 @@ export async function generateSubtasks(taskTitle: string, settings: any): Promis
   const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
   if (!apiKey) return [];
   
-  const ai = new GoogleGenAI(settings.apiUrl ? { apiKey, httpOptions: { baseUrl: settings.apiUrl } } : { apiKey });
+  const ai = getAIClient(settings);
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3.1-flash-lite-preview',
@@ -435,7 +445,7 @@ export async function transformToMarkdown(text: string, settings: any): Promise<
   const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
   if (!apiKey) return { markdown: text, suggestions: [] };
   
-  const ai = new GoogleGenAI(settings.apiUrl ? { apiKey, httpOptions: { baseUrl: settings.apiUrl } } : { apiKey });
+  const ai = getAIClient(settings);
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3.1-flash-lite-preview',

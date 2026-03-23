@@ -20,10 +20,12 @@ export class RadixDB extends Dexie {
   radixContacts!: Table<any>;
   whatsappContacts!: Table<any>;
   whatsappMessages!: Table<any>;
+  agent_telemetry_logs!: Table<any>;
+  exa_api_usage!: Table<any>;
 
   constructor() {
     super('radix_db');
-    this.version(11).stores({
+    this.version(12).stores({
       messages: 'id, timestamp, threadId, type, isAiChat', // Indexed fields
       settings: 'key',
       threads: 'id, lastMessageTime',
@@ -41,7 +43,9 @@ export class RadixDB extends Dexie {
       ai_assets: 'id, modelName',
       radixContacts: '++id, name, publicKey, dateAdded',
       whatsappContacts: '++id, name, phoneNumber, dateAdded',
-      whatsappMessages: '++id, contactId, textContent, timestamp, type'
+      whatsappMessages: '++id, contactId, textContent, timestamp, type',
+      agent_telemetry_logs: '++id, agentId, timestamp, type',
+      exa_api_usage: 'month, count'
     });
 
     // Encryption Middleware
@@ -76,13 +80,16 @@ export class RadixDB extends Dexie {
                     const { id, timestamp, ...rest } = entry;
                     // Encrypt everything except ID and timestamp (needed for indexing/LRU)
                     const { ciphertext, nonce } = await encryptData(rest);
-                    return {
-                      id,
+                    const encryptedEntry: any = {
                       timestamp,
                       encrypted: true,
                       ciphertext,
                       nonce
                     };
+                    if (id !== undefined) {
+                      encryptedEntry.id = id;
+                    }
+                    return encryptedEntry;
                   };
 
                   if (req.type === 'put') {
@@ -174,35 +181,41 @@ async function pruneOldMedia() {
 }
 
 // Wrapper functions for backward compatibility with existing code
+const cleanId = (obj: any) => {
+  const cleaned = { ...obj };
+  if (cleaned.id === undefined) delete cleaned.id;
+  return cleaned;
+};
+
 export const getSetting = async (key: string) => (await db.settings.get(key))?.value;
 export const setSetting = async (key: string, value: any) => db.settings.put({ key, value });
 
-export const addMessage = async (msg: any) => db.messages.put(msg);
+export const addMessage = async (msg: any) => db.messages.put(cleanId(msg));
 export const getMessages = async () => db.messages.orderBy('timestamp').toArray();
 export const deleteMessage = async (id: string) => db.messages.delete(id);
 
-export const addThread = async (t: any) => db.threads.put(t);
+export const addThread = async (t: any) => db.threads.put(cleanId(t));
 export const getThreads = async () => db.threads.toArray();
 
-export const addGroup = async (g: any) => db.groups.put(g);
+export const addGroup = async (g: any) => db.groups.put(cleanId(g));
 export const getGroups = async () => db.groups.toArray();
 
-export const addContact = async (c: any) => db.contacts.put(c);
+export const addContact = async (c: any) => db.contacts.put(cleanId(c));
 export const getContacts = async () => db.contacts.toArray();
 
-export const addAgent = async (a: any) => db.agents.put(a);
+export const addAgent = async (a: any) => db.agents.put(cleanId(a));
 export const getAgents = async () => db.agents.toArray();
 export const deleteAgent = async (id: string) => db.agents.delete(id);
 
-export const addRadixContact = async (c: any) => db.radixContacts.put(c);
+export const addRadixContact = async (c: any) => db.radixContacts.put(cleanId(c));
 export const getRadixContacts = async () => db.radixContacts.toArray();
 export const deleteRadixContact = async (id: number) => db.radixContacts.delete(id);
 
-export const addWhatsappContact = async (c: any) => db.whatsappContacts.put(c);
+export const addWhatsappContact = async (c: any) => db.whatsappContacts.put(cleanId(c));
 export const getWhatsappContacts = async () => db.whatsappContacts.toArray();
 export const deleteWhatsappContact = async (id: number) => db.whatsappContacts.delete(id);
 
-export const addWhatsappMessage = async (m: any) => db.whatsappMessages.put(m);
+export const addWhatsappMessage = async (m: any) => db.whatsappMessages.put(cleanId(m));
 export const getWhatsappMessages = async (contactId: number) => db.whatsappMessages.where('contactId').equals(contactId).sortBy('timestamp');
 export const deleteWhatsappMessage = async (id: number) => db.whatsappMessages.delete(id);
 
@@ -234,21 +247,21 @@ export const saveDirectoryHandle = async (handle: FileSystemDirectoryHandle) => 
 export const getDirectoryHandle = async () => (await db.directory_handles.get('root'))?.handle;
 
 // Channels Module Helpers
-export const addFolder = async (folder: any) => db.folders.put(folder);
+export const addFolder = async (folder: any) => db.folders.put(cleanId(folder));
 export const getFolders = async () => db.folders.toArray();
 export const deleteFolder = async (id: string) => db.folders.delete(id);
 export const updateFolder = async (id: string, updates: any) => db.folders.update(id, updates);
 
-export const addChannel = async (channel: any) => db.channels.put(channel);
+export const addChannel = async (channel: any) => db.channels.put(cleanId(channel));
 export const getChannels = async () => db.channels.toArray();
 export const deleteChannel = async (id: string) => db.channels.delete(id);
 export const updateChannel = async (id: string, updates: any) => db.channels.update(id, updates);
 
-export const addFeed = async (feed: any) => db.feeds.put(feed);
+export const addFeed = async (feed: any) => db.feeds.put(cleanId(feed));
 export const getFeeds = async () => db.feeds.toArray();
 export const deleteFeed = async (id: string) => db.feeds.delete(id);
 
-export const addChannelerPrompt = async (prompt: any) => db.channeler_prompts.put(prompt);
+export const addChannelerPrompt = async (prompt: any) => db.channeler_prompts.put(cleanId(prompt));
 export const getChannelerPrompts = async () => db.channeler_prompts.toArray();
 export const deleteChannelerPrompt = async (id: string) => db.channeler_prompts.delete(id);
 
@@ -289,3 +302,39 @@ export const evictOldMedia = async (totalCapacityBytes: number, force: boolean =
   }
 };
 
+export const addAgentTelemetryLog = async (log: any) => {
+  return db.agent_telemetry_logs.add({
+    ...log,
+    timestamp: Date.now()
+  });
+};
+
+export const getAgentTelemetryLogs = async (agentId: string) => {
+  return db.agent_telemetry_logs
+    .where('agentId')
+    .equals(agentId)
+    .reverse()
+    .sortBy('timestamp');
+};
+
+export const incrementExaApiUsage = async () => {
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  
+  const record = await db.exa_api_usage.get(monthKey);
+  if (record) {
+    await db.exa_api_usage.update(monthKey, { count: record.count + 1 });
+    return record.count + 1;
+  } else {
+    await db.exa_api_usage.put({ month: monthKey, count: 1 });
+    return 1;
+  }
+};
+
+export const getExaApiUsage = async () => {
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  
+  const record = await db.exa_api_usage.get(monthKey);
+  return record ? record.count : 0;
+};

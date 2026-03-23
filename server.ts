@@ -474,11 +474,18 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
+    try {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch (e: any) {
+      console.error('Vite server failed to start:', e);
+      app.use((req, res) => {
+        res.status(500).send(`<h1>Vite Server Error</h1><pre>${e.stack || e.message}</pre>`);
+      });
+    }
   } else {
     app.use(express.static('dist'));
     app.get('*', (req, res) => {

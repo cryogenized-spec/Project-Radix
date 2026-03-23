@@ -130,7 +130,11 @@ export default React.memo(function Organizer() {
       await organizerDb.events.delete(updatedTask.linkedEventId);
       updatedTask.linkedEventId = undefined; // Remove the link after migration
     }
-    await organizerDb.tasks.put(updatedTask);
+    const taskToSave = { ...updatedTask };
+    if (taskToSave.id === undefined) {
+      delete taskToSave.id;
+    }
+    await organizerDb.tasks.put(taskToSave);
     setEditingTask(null);
     showNotification('Task updated!');
     window.dispatchEvent(new Event('organizer:refresh'));
