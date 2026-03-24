@@ -183,7 +183,7 @@ async function pruneOldMedia() {
 // Wrapper functions for backward compatibility with existing code
 const cleanId = (obj: any) => {
   const cleaned = { ...obj };
-  if (cleaned.id === undefined) delete cleaned.id;
+  if (cleaned.id === undefined || cleaned.id === null) delete cleaned.id;
   return cleaned;
 };
 

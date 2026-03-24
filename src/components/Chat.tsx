@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RadixIcon } from './RadixIcon';
-import { Send, Mic, Image as ImageIcon, Paperclip, Ghost, Bot, Square, Play, Maximize2, Minimize2, Activity, Video, FileText, Music, MapPin, Users, BarChart2, X, MoreVertical, Trash2, Reply, Share2, Languages, PenTool, CheckCircle, Plus, Hash, MessageSquare, Shield, Globe, Lock, ChevronLeft, ChevronRight, ScanLine, QrCode, Copy, ExternalLink, Headphones, UserPlus, Check, Loader2, Calendar, Wand2, Monitor, RotateCcw, Database } from 'lucide-react';
+import { Send, Mic, Image as ImageIcon, Paperclip, Ghost, Bot, Square, Play, Maximize2, Minimize2, Activity, Video, FileText, Music, MapPin, Users, BarChart2, X, MoreVertical, Trash2, Reply, Share2, Languages, PenTool, CheckCircle, Plus, Hash, MessageSquare, Shield, Globe, Lock, ChevronLeft, ChevronRight, ScanLine, QrCode, Copy, ExternalLink, Headphones, UserPlus, Check, Loader2, Calendar, Wand2, Monitor, RotateCcw, Database, Cloud } from 'lucide-react';
 import { addMessage, getMessages, getSetting, setSetting, deleteMessage, addThread, getThreads, addGroup, getGroups, getContacts, addContact, getAgents, getStorageStats, evictOldMedia, addWhatsappMessage, getWhatsappMessages, deleteWhatsappMessage } from '../lib/db';
 import { generateAIResponse, generateAIResponseStream, transcribeAudio, generateRewrite, generateFactCheck, generateTranslation, generateVisualAnalysis } from '../lib/gemini';
 import { EMAIL_TOOLS, emailToolsHandler } from '../lib/emailTools';
@@ -19,6 +19,7 @@ import { CodeScanner } from './CodeScanner';
 import VoiceNotePlayer from './VoiceNotePlayer';
 import InstallPWA from './InstallPWA';
 import DraggableFab from './DraggableFab';
+import { Mermaid } from './Mermaid';
 import { ChannelList, ChannelView, Channel } from './Channels';
 import { useAvifEncoder } from '../hooks/useAvifEncoder';
 import { transcodeVideoToAV1 } from '../lib/transcode';
@@ -91,6 +92,7 @@ export default React.memo(function Chat({ profile, isAiExclusive, initialAgent, 
   const [contextMenuMsgId, setContextMenuMsgId] = useState<string | null>(null);
   const [globalContextMenu, setGlobalContextMenu] = useState(false);
   const [showAiSubmenu, setShowAiSubmenu] = useState(false);
+  const [showWeatherSubmenu, setShowWeatherSubmenu] = useState(false);
   const [aiActionPrivacy, setAiActionPrivacy] = useState<'public' | 'private'>('public');
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [selectedMessageIds, setSelectedMessageIds] = useState<string[]>([]);
@@ -263,6 +265,10 @@ Provide tactical advice or draft a response. If drafting a response, provide ONL
       if (showInputMenu) {
         setShowInputMenu(false);
         setInputMenuLevel('root');
+        return true;
+      }
+      if (showWeatherSubmenu) {
+        setShowWeatherSubmenu(false);
         return true;
       }
       if (showAiSubmenu) {
@@ -749,6 +755,7 @@ Provide tactical advice or draft a response. If drafting a response, provide ONL
     setGlobalContextMenu(true);
     setContextMenuMsgId(null);
     setShowAiSubmenu(false);
+    setShowWeatherSubmenu(false);
   };
 
   const handleLongPressMessage = (id: string) => {
@@ -757,6 +764,7 @@ Provide tactical advice or draft a response. If drafting a response, provide ONL
     // Show context menu on long press
     setContextMenuMsgId(id);
     setShowAiSubmenu(false);
+    setShowWeatherSubmenu(false);
 
     // Auto-select the message
     setIsSelectionMode(true);
@@ -924,7 +932,7 @@ Generate the next message from ${activeContext.contact.name}:`;
       const mode = isAiExclusive ? 'participant' : (aiMode as 'ghost' | 'participant');
       
       // Determine AI Identity
-      let aiName = 'RADIX_AI';
+      let aiName = 'AI';
       let currentAiSettings = { ...aiSettings };
 
       // Inject Email Tools if triggered
@@ -1008,7 +1016,7 @@ Generate the next message from ${activeContext.contact.name}:`;
       }
 
       if (aiMode === 'ghost' && !isAiExclusive) {
-        aiName = activeAgent ? `${activeAgent.name} (Ghost)` : 'RADIX_GHOST';
+        aiName = activeAgent ? `${activeAgent.name} (Ghost)` : 'GHOST';
       }
 
       // Streaming Logic
@@ -1126,7 +1134,7 @@ Generate the next message from ${activeContext.contact.name}:`;
     setIsProcessing(true);
     const mode = isAiExclusive ? 'participant' : (aiMode as 'ghost' | 'participant');
     
-    let aiName = 'RADIX_AI';
+    let aiName = 'AI';
     let currentAiSettings = { ...aiSettings };
     let activeAgent: any = null;
     
@@ -1177,7 +1185,7 @@ Generate the next message from ${activeContext.contact.name}:`;
     }
 
     if (aiMode === 'ghost' && !isAiExclusive) {
-        aiName = activeAgent ? `${activeAgent.name} (Ghost)` : 'RADIX_GHOST';
+        aiName = activeAgent ? `${activeAgent.name} (Ghost)` : 'GHOST';
     }
 
     const shouldStream = activeAgent?.streamResponse !== false;
@@ -1259,6 +1267,147 @@ Generate the next message from ${activeContext.contact.name}:`;
     setIsProcessing(false);
   };
 
+  const handleWeatherAction = async (option: 'today' | 'tomorrow' | 'weekly') => {
+    setGlobalContextMenu(false);
+    setShowWeatherSubmenu(false);
+    
+    // Create a hidden command message and send it to the AI
+    const command = `/sys_weather ${option} KwaDukuza`;
+    
+    const newMsg = {
+      id: crypto.randomUUID(),
+      text: command,
+      sender: 'me',
+      timestamp: Date.now(),
+      type: 'text',
+      isAiChat: isAiExclusive,
+      threadId: isAiExclusive && activeContext ? activeContext.id : undefined,
+      groupId: !isAiExclusive && activeTab === 'groups' && activeContext ? activeContext.id : undefined,
+      replyToId: replyingTo ? replyingTo.id : undefined,
+      font: await getSetting('font') || 'JetBrains Mono',
+      fontColor: await getSetting('fontColor'),
+      emoticonPack: await getSetting('emoticonPack') || 'Native OS'
+    };
+
+    // We don't add the command to the UI, but we process it as if it was sent
+    setIsProcessing(true);
+    const mode = isAiExclusive ? 'participant' : (aiMode as 'ghost' | 'participant');
+    
+    let aiName = 'AI';
+    let currentAiSettings = { ...aiSettings };
+    let activeAgent: any = null;
+
+    if (activeContext?.isAgent) {
+        aiName = activeContext.name;
+        const agent = agents.find(a => a.id === activeContext.agentId);
+        activeAgent = agent;
+        if (agent) {
+             const instruction = agent.privatePersona || agent.role || agent.systemInstruction;
+             if (instruction) currentAiSettings.systemInstruction = instruction;
+        } else if (activeContext.systemInstruction) {
+             currentAiSettings.systemInstruction = activeContext.systemInstruction;
+        }
+    } else if (agents.length > 0) {
+        let defaultAgent = agents.find(a => a.isPrimary || a.isPinned);
+        if (!defaultAgent) {
+            defaultAgent = agents.sort((a, b) => a.createdAt - b.createdAt)[0];
+        }
+        aiName = defaultAgent.name;
+        activeAgent = defaultAgent;
+        if (defaultAgent) {
+            const instruction = defaultAgent.privatePersona || defaultAgent.role || defaultAgent.systemInstruction;
+            if (instruction) currentAiSettings.systemInstruction = instruction;
+        }
+    }
+    
+    if (activeAgent) {
+        if (activeAgent.provider) currentAiSettings.provider = activeAgent.provider;
+        if (activeAgent.apiUrl) currentAiSettings.apiUrl = activeAgent.apiUrl;
+        if (activeAgent.model) currentAiSettings.model = activeAgent.model;
+        if (activeAgent.apiKey) {
+            try {
+                currentAiSettings.apiKey = await decryptApiKey(activeAgent.apiKey);
+            } catch (e) {
+                console.error("Failed to decrypt agent API key", e);
+            }
+        }
+    }
+    
+    // Add Weather Tool to the AI
+    currentAiSettings.tools = [{
+        name: 'get_weather_forecast',
+        description: 'Get the weather forecast for a specific location. The AI must use this tool to fetch data, then output a Mermaid.js chart (gantt or pie) representing the forecast.',
+        parameters: {
+            type: 'object',
+            properties: {
+                lat: { type: 'number', description: 'Latitude' },
+                lon: { type: 'number', description: 'Longitude' },
+                type: { type: 'string', description: 'Forecast type: today, tomorrow, or weekly' }
+            },
+            required: ['lat', 'lon', 'type']
+        }
+    }];
+    
+    currentAiSettings.toolExecutor = {
+        get_weather_forecast: async (args: any) => {
+            try {
+                const { WeatherService } = await import('../services/WeatherService');
+                const data = await WeatherService.getForecast(args.lat, args.lon, args.type);
+                return JSON.stringify(data);
+            } catch (e: any) {
+                return `Error fetching weather: ${e.message}`;
+            }
+        }
+    };
+    
+    currentAiSettings.systemInstruction = (currentAiSettings.systemInstruction || "") + 
+        `\n\n[SYSTEM: Weather Command Triggered. The user requested the weather forecast for ${option} in KwaDukuza.
+        \nYou MUST use the 'get_weather_forecast' tool to fetch the data. The coordinates for KwaDukuza are lat: -29.3333, lon: 31.2833.
+        \nAfter fetching the data, you MUST output a Mermaid.js chart representing the forecast.
+        \nFor 'today' or 'tomorrow' (hourly): Use a 'gantt' chart to show temperature or conditions over time.
+        \nFor 'weekly' (daily): Use a 'pie' chart, 'flowchart', or markdown table to show the weekly overview.
+        \nEnsure the Mermaid syntax is enclosed in \`\`\`mermaid ... \`\`\` blocks.
+        \nMaintain a clean, objective, high-contrast "Digital Ronin" style.]`;
+
+    const aiMsgId = crypto.randomUUID();
+    abortControllerRef.current = false;
+    
+    let aiMsg = {
+      id: aiMsgId,
+      text: '',
+      sender: aiName,
+      timestamp: Date.now(),
+      type: 'text',
+      isGhost: aiMode === 'ghost' && !isAiExclusive,
+      isAiChat: isAiExclusive,
+      threadId: isAiExclusive && activeContext ? activeContext.id : undefined,
+      font: 'JetBrains Mono',
+      fontColor: '#00FF00',
+      emoticonPack: 'Native OS'
+    };
+
+    setMessages(prev => [...prev, aiMsg]);
+    
+    let streamedText = "";
+    try {
+        for await (const chunk of generateAIResponseStream(command, mode, [...messages], currentAiSettings)) {
+            if (abortControllerRef.current) break;
+            streamedText += chunk;
+            setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: streamedText } : m));
+        }
+        
+        aiMsg.text = streamedText;
+        await addMessage(aiMsg);
+    } catch (err) {
+        console.error("Weather Action Error", err);
+        aiMsg.text = "ERR: WEATHER_FETCH_FAILED";
+        setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: aiMsg.text } : m));
+        await addMessage(aiMsg);
+    }
+    
+    setIsProcessing(false);
+  };
+
   const handleAiAction = async (action: string, msg: any, extra?: string) => {
     setContextMenuMsgId(null);
     setIsProcessing(true);
@@ -1272,8 +1421,8 @@ Generate the next message from ${activeContext.contact.name}:`;
         let responseText = '';
         const isPrivate = aiActionPrivacy === 'private';
         
-        let aiName = 'RADIX_AI';
-        let ghostName = 'RADIX_GHOST';
+        let aiName = 'AI';
+        let ghostName = 'GHOST';
         let currentAiSettings = { ...aiSettings };
         let activeAgent: any = null;
         
@@ -2737,6 +2886,13 @@ Generate the next message from ${activeContext.contact.name}:`;
                               const codeString = String(children).replace(/\n$/, '')
                               
                               if (!inline && match) {
+                                if (language === 'mermaid') {
+                                  return (
+                                    <div className="my-4">
+                                      <Mermaid chart={codeString} />
+                                    </div>
+                                  );
+                                }
                                 return (
                                   <div className="relative my-4 rounded-xl overflow-hidden border border-[var(--border)] bg-[#1e1e1e]">
                                     <div className="flex items-center justify-between px-4 py-2 bg-[#2d2d2d] border-b border-[#404040]">
@@ -2748,7 +2904,9 @@ Generate the next message from ${activeContext.contact.name}:`;
                                             navigator.clipboard.writeText(codeString);
                                             btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-400"><polyline points="20 6 9 17 4 12"></polyline></svg>';
                                             setTimeout(() => {
-                                              btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+                                              if (btn && document.body.contains(btn)) {
+                                                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+                                              }
                                             }, 2000);
                                           }}
                                           className="p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
@@ -3362,12 +3520,22 @@ Generate the next message from ${activeContext.contact.name}:`;
                             </>
                           );
                         })()
-                      ) : !showAiSubmenu ? (
+                      ) : !showAiSubmenu && !showWeatherSubmenu ? (
                         <>
                           <button onClick={() => setShowAiSubmenu(true)} className="p-3 text-left text-xs hover:bg-[var(--bg-color)] flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               <Bot size={14} className="text-[var(--accent)]" />
                               <span className="font-bold">AI Options</span>
+                            </div>
+                            <Plus size={14} className="opacity-50" />
+                          </button>
+
+                          <div className="border-t border-[var(--border)] my-1"></div>
+
+                          <button onClick={() => setShowWeatherSubmenu(true)} className="p-3 text-left text-xs hover:bg-[var(--bg-color)] flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <Cloud size={14} className="text-[var(--accent)]" />
+                              <span className="font-bold">Weather</span>
                             </div>
                             <Plus size={14} className="opacity-50" />
                           </button>
@@ -3380,6 +3548,35 @@ Generate the next message from ${activeContext.contact.name}:`;
                               <span className="font-bold">Markdown</span>
                             </div>
                             <Plus size={14} className="opacity-50" />
+                          </button>
+                        </>
+                      ) : showWeatherSubmenu ? (
+                        <>
+                          <button onClick={() => setShowWeatherSubmenu(false)} className="p-3 text-left text-xs hover:bg-[var(--bg-color)] flex items-center space-x-2 bg-[var(--accent)]/5">
+                            <ChevronLeft size={14} /> <span className="font-bold">Back to Menu</span>
+                          </button>
+                          
+                          <div className="px-3 py-2 flex items-center justify-between bg-[var(--bg-color)]/50">
+                            <span className="text-[10px] uppercase tracking-wider text-[var(--accent)] font-bold">Weather Forecast</span>
+                          </div>
+                          
+                          <button 
+                            onClick={() => handleWeatherAction('today')}
+                            className="p-3 text-left text-xs hover:bg-[var(--bg-color)] flex items-center space-x-2"
+                          >
+                            <Calendar size={14} /> <span>Today's Forecast</span>
+                          </button>
+                          <button 
+                            onClick={() => handleWeatherAction('tomorrow')}
+                            className="p-3 text-left text-xs hover:bg-[var(--bg-color)] flex items-center space-x-2"
+                          >
+                            <Calendar size={14} /> <span>Tomorrow's Forecast</span>
+                          </button>
+                          <button 
+                            onClick={() => handleWeatherAction('weekly')}
+                            className="p-3 text-left text-xs hover:bg-[var(--bg-color)] flex items-center space-x-2"
+                          >
+                            <Calendar size={14} /> <span>Weekly Forecast</span>
                           </button>
                         </>
                       ) : (

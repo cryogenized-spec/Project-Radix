@@ -27,6 +27,7 @@ export const Mermaid: React.FC<MermaidProps> = ({ chart, onNodeClick }) => {
         try {
           containerRef.current.innerHTML = '';
           const { svg, bindFunctions } = await mermaid.render(`mermaid-${Math.random().toString(36).substr(2, 9)}`, chart);
+          if (!containerRef.current) return;
           containerRef.current.innerHTML = svg;
           if (bindFunctions) {
             bindFunctions(containerRef.current);
@@ -46,7 +47,9 @@ export const Mermaid: React.FC<MermaidProps> = ({ chart, onNodeClick }) => {
           }
         } catch (error) {
           console.error("Mermaid rendering error:", error);
-          containerRef.current.innerHTML = `<div class="text-red-500 text-xs p-2">Error rendering chart. Please check the YAML syntax.</div>`;
+          if (containerRef.current) {
+            containerRef.current.innerHTML = `<div class="text-red-500 text-xs p-2">Error rendering chart. Please check the YAML syntax.</div>`;
+          }
         }
       }
     };

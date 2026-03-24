@@ -267,7 +267,7 @@ export default function RadixWorkbench() {
         <div className="flex items-center space-x-3 mb-4 sm:mb-0">
           <Layers className="text-[var(--accent)]" size={28} />
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">RADIX Workbench</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Workbench</h1>
             <p className="text-xs text-[var(--text-muted)]">Sovereign 3D Electronic Circuit Designer (AI-CAD)</p>
           </div>
         </div>
@@ -357,7 +357,7 @@ export default function RadixWorkbench() {
                       <div className="bg-black/40 border border-[var(--border)] rounded-xl p-4 mb-4 text-sm text-[var(--text-main)] flex flex-col space-y-2 shrink-0">
                         <div className="flex items-center text-purple-400 font-bold mb-1">
                           <MapPin size={16} className="mr-2 text-purple-500" />
-                          RADIX Agent
+                          Workbench Agent
                         </div>
                         <div className="whitespace-pre-wrap leading-relaxed text-xs">
                           {aiFeedback}

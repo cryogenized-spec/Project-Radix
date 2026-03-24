@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Key, Save, Shield, Check, Play, Settings2, MessageSquare, Lock, BrainCircuit, Mic, RefreshCw, Bot, Unlock, Undo, Redo, Zap, Mail, Image as ImageIcon } from 'lucide-react';
+import { Key, Save, Shield, Check, Play, Settings2, MessageSquare, Lock, BrainCircuit, Mic, RefreshCw, Bot, Unlock, Undo, Redo, Zap, Mail, Image as ImageIcon, Cloud } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import { getSetting, setSetting, getAgents, addAgent, getExaApiUsage } from '../lib/db';
 import { GoogleGenAI } from '@google/genai';
@@ -86,6 +86,7 @@ export default function ApiLockbox() {
   
   const [sttProvider, setSttProvider] = useState('Local (Gemini Nano)');
   const [sttApiKey, setSttApiKey] = useState('');
+  const [openWeatherApiKey, setOpenWeatherApiKey] = useState('');
   
   const [saved, setSaved] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
@@ -196,7 +197,7 @@ export default function ApiLockbox() {
 
   const saveToHistory = () => {
       const currentState = {
-          provider, apiKey, apiUrl, model, sttProvider, sttApiKey, settings, targetTokens, maxTokens,
+          provider, apiKey, apiUrl, model, sttProvider, sttApiKey, openWeatherApiKey, settings, targetTokens, maxTokens,
           longPressDelay, streamTokens, vttProfile, privatePersona, publicPersona, rewriteFormal, rewriteCasual, rewriteWarm
       };
 
@@ -231,6 +232,7 @@ export default function ApiLockbox() {
       setModel(state.model);
       setSttProvider(state.sttProvider);
       setSttApiKey(state.sttApiKey);
+      if (state.openWeatherApiKey !== undefined) setOpenWeatherApiKey(state.openWeatherApiKey);
       
       setSettings(state.settings || {
           public: { temperature: state.temperature ?? 0.7, topP: state.topP ?? 0.9, thinkingBudget: state.thinkingBudget ?? 80 },
@@ -242,8 +244,8 @@ export default function ApiLockbox() {
       setLongPressDelay(state.longPressDelay ?? 250);
       setStreamTokens(state.streamTokens ?? true);
       setVttProfile(state.vttProfile || 'Balanced');
-      setPrivatePersona(state.privatePersona || "You are RADIX Ghost...");
-      setPublicPersona(state.publicPersona || "You are RADIX AI...");
+      setPrivatePersona(state.privatePersona || "You are Ghost...");
+      setPublicPersona(state.publicPersona || "You are AI...");
       setRewriteFormal(state.rewriteFormal || "Professional, academic, precise");
       setRewriteCasual(state.rewriteCasual || "Relaxed, slang-heavy, friendly");
       setRewriteWarm(state.rewriteWarm || "Empathetic, kind, supportive");
@@ -254,7 +256,7 @@ export default function ApiLockbox() {
       const timer = setTimeout(() => {
           if (!isInitialLoad.current) {
               const currentState = JSON.stringify({
-                  provider, apiKey, apiUrl, model, sttProvider, sttApiKey, settings, targetTokens, maxTokens,
+                  provider, apiKey, apiUrl, model, sttProvider, sttApiKey, openWeatherApiKey, settings, targetTokens, maxTokens,
                   longPressDelay, streamTokens, vttProfile, privatePersona, publicPersona, rewriteFormal, rewriteCasual, rewriteWarm
               });
               
@@ -265,7 +267,7 @@ export default function ApiLockbox() {
           }
       }, 1000);
       return () => clearTimeout(timer);
-  }, [provider, apiKey, apiUrl, model, sttProvider, sttApiKey, settings, targetTokens, maxTokens, longPressDelay, streamTokens, vttProfile, privatePersona, publicPersona, rewriteFormal, rewriteCasual, rewriteWarm]);
+  }, [provider, apiKey, apiUrl, model, sttProvider, sttApiKey, openWeatherApiKey, settings, targetTokens, maxTokens, longPressDelay, streamTokens, vttProfile, privatePersona, publicPersona, rewriteFormal, rewriteCasual, rewriteWarm]);
 
   useEffect(() => {
     loadAgents(true);
@@ -305,6 +307,11 @@ export default function ApiLockbox() {
       const sttKeys = await getSetting('stt_api_keys') || {};
       setSttApiKey(await decryptApiKey(sttKeys[savedSttProvider] || ''));
 
+      const owmKey = await getSetting('openWeatherApiKey');
+      if (owmKey) {
+          setOpenWeatherApiKey(await decryptApiKey(owmKey));
+      }
+
       setModel(aiSettings.model || 'gemini-3.1-flash-lite-preview');
       setSettings(aiSettings.settings || {
           public: { temperature: aiSettings.temperature ?? 0.7, topP: aiSettings.topP ?? 0.9, thinkingBudget: aiSettings.thinkingBudget ?? 80 },
@@ -317,8 +324,8 @@ export default function ApiLockbox() {
       const isDefault = aiSettings.isDefaultPersona !== false;
       setIsDefaultPersona(isDefault);
       
-      setPrivatePersona(aiSettings.privatePersona || (isDefault ? "You are RADIX Ghost, a private advisor. Analyze the chat and advise the user privately. Be concise, analytical, and industrial in tone. Do not filter yourself." : ""));
-      setPublicPersona(aiSettings.publicPersona || (isDefault ? "You are RADIX AI, a participant in this chat. Respond to the conversation naturally but with a technical, industrial persona. Do not filter yourself." : ""));
+      setPrivatePersona(aiSettings.privatePersona || (isDefault ? "You are Ghost, a private advisor. Analyze the chat and advise the user privately. Be concise, analytical, and industrial in tone. Do not filter yourself." : ""));
+      setPublicPersona(aiSettings.publicPersona || (isDefault ? "You are AI, a participant in this chat. Respond to the conversation naturally but with a technical, industrial persona. Do not filter yourself." : ""));
       setRewriteFormal(aiSettings.rewriteFormal || "Professional, academic, precise");
       setRewriteCasual(aiSettings.rewriteCasual || "Relaxed, slang-heavy, friendly");
       setRewriteWarm(aiSettings.rewriteWarm || "Empathetic, kind, supportive");
@@ -355,6 +362,7 @@ export default function ApiLockbox() {
         setVttProfile(agent.vttProfile || aiSettings.vttProfile || 'Balanced');
         setSttProvider(agent.sttProvider || 'Local (Gemini Nano)');
         setSttApiKey(await decryptApiKey(agent.sttApiKey || ''));
+        setOpenWeatherApiKey(await decryptApiKey(agent.openWeatherApiKey || ''));
         setRewriteFormal(agent.rewriteFormal || aiSettings.rewriteFormal || "");
         setRewriteCasual(agent.rewriteCasual || aiSettings.rewriteCasual || "");
         setRewriteWarm(agent.rewriteWarm || aiSettings.rewriteWarm || "");
@@ -384,6 +392,8 @@ export default function ApiLockbox() {
       sttKeys[sttProvider] = await encryptApiKey(sttApiKey);
       await setSetting('stt_api_keys', sttKeys);
 
+      await setSetting('openWeatherApiKey', await encryptApiKey(openWeatherApiKey));
+
       await setSetting('ai_settings', {
         provider, apiUrl, model, settings,
         longPressDelay, streamTokens, vttProfile, privatePersona, publicPersona,
@@ -404,6 +414,7 @@ export default function ApiLockbox() {
           provider, apiKey: await encryptApiKey(apiKey), apiUrl, model, settings,
           longPressDelay, streamTokens, vttProfile, privatePersona, publicPersona,
           sttProvider, sttApiKey: await encryptApiKey(sttApiKey),
+          openWeatherApiKey: await encryptApiKey(openWeatherApiKey),
           rewriteFormal, rewriteCasual, rewriteWarm, testedProviders
         };
         await addAgent(updatedAgent); // addAgent uses .put() which updates if ID exists
@@ -967,6 +978,30 @@ export default function ApiLockbox() {
               className="w-full radix-input p-2.5 sm:p-3 text-xs sm:text-sm rounded-xl"
             />
             <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)]">Required for Image Generation models.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Integrations */}
+      <section className="space-y-3 sm:space-y-4 radix-panel p-3 sm:p-4 rounded-xl">
+        <h2 className="text-[10px] sm:text-sm font-bold tracking-widest uppercase flex items-center text-[var(--text-muted)]">
+          <Cloud className="mr-2 sm:w-4 sm:h-4" />
+          Integrations
+        </h2>
+        
+        <div className="space-y-3 sm:space-y-4">
+          <div className="space-y-1.5 sm:space-y-2">
+            <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">OpenWeatherMap API Key</label>
+            <input 
+              type="password"
+              value={openWeatherApiKey}
+              onChange={(e) => setOpenWeatherApiKey(e.target.value)}
+              placeholder="Enter your API key"
+              className="w-full radix-input p-2.5 sm:p-3 text-xs sm:text-sm rounded-xl"
+            />
+            <p className="text-[9px] sm:text-[10px] text-[var(--text-muted)]">
+              Required for the Weather action. Get one at <a href="https://openweathermap.org/api" target="_blank" rel="noreferrer" className="text-[var(--accent)] hover:underline">openweathermap.org</a>.
+            </p>
           </div>
         </div>
       </section>

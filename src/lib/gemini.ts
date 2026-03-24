@@ -1,5 +1,227 @@
 import { GoogleGenAI, ThinkingLevel, Content, Part } from '@google/genai';
 import { fsManager } from './filesystem';
+import { ModelService } from './ModelService';
+
+async function* generateOpenAIStream(prompt: string, mode: string, context: any[], settings: any, systemInstruction: string) {
+  const apiKey = settings.apiKey;
+  const baseUrl = settings.apiUrl || 'https://api.openai.com/v1';
+  const model = settings.model || 'gpt-4o';
+  
+  const messages: any[] = [];
+  if (systemInstruction) {
+    messages.push({ role: 'system', content: systemInstruction });
+  }
+  
+  for (const m of context) {
+    let content: any = m.text || '';
+    if (m.mediaUrl && m.mediaType === 'image') {
+      content = [
+        { type: 'text', text: m.text || '' },
+        { type: 'image_url', image_url: { url: m.mediaUrl } }
+      ];
+    }
+    messages.push({
+      role: m.sender === 'me' ? 'user' : 'assistant',
+      content
+    });
+  }
+  
+  messages.push({ role: 'user', content: prompt });
+  
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      temperature: settings.temperature ?? 0.7,
+      top_p: settings.topP ?? 0.9,
+      max_tokens: settings.maxTokens ?? 1000,
+      stream: true
+    })
+  });
+  
+  if (!response.ok) {
+    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+  }
+  
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  if (!reader) throw new Error("No reader");
+  
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('data: ') && trimmed !== 'data: [DONE]') {
+        try {
+          const data = JSON.parse(trimmed.slice(6));
+          if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
+            yield data.choices[0].delta.content;
+          }
+        } catch (e) {
+          // ignore parse error
+        }
+      }
+    }
+  }
+}
+
+async function* generateAnthropicStream(prompt: string, mode: string, context: any[], settings: any, systemInstruction: string) {
+  const apiKey = settings.apiKey;
+  const baseUrl = settings.apiUrl || 'https://api.anthropic.com/v1';
+  const model = settings.model || 'claude-3-opus-20240229';
+  
+  const messages: any[] = [];
+  for (const m of context) {
+    let content: any[] = [];
+    if (m.mediaUrl && m.mediaType === 'image') {
+      const match = m.mediaUrl.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+      if (match) {
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: match[1],
+            data: match[2]
+          }
+        });
+      }
+    }
+    if (m.text) {
+      content.push({ type: 'text', text: m.text });
+    }
+    if (content.length === 0) content.push({ type: 'text', text: '[Empty]' });
+    
+    messages.push({
+      role: m.sender === 'me' ? 'user' : 'assistant',
+      content
+    });
+  }
+  
+  messages.push({ role: 'user', content: prompt });
+  
+  const response = await fetch(`${baseUrl}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model,
+      system: systemInstruction,
+      messages,
+      temperature: settings.temperature ?? 0.7,
+      max_tokens: settings.maxTokens ?? 1000,
+      stream: true
+    })
+  });
+  
+  if (!response.ok) {
+    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+  }
+  
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  if (!reader) throw new Error("No reader");
+  
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(trimmed.slice(6));
+          if (data.type === 'content_block_delta' && data.delta && data.delta.text) {
+            yield data.delta.text;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+  }
+}
+
+async function* generateLocalIntelligenceStream(prompt: string, mode: string, context: any[], settings: any, systemInstruction: string) {
+  const worker = ModelService.getWorker();
+  const modelId = settings.model;
+  
+  let fullPrompt = "";
+  for (const m of context) {
+    fullPrompt += `${m.sender === 'me' ? 'User' : 'Assistant'}: ${m.text}\n`;
+  }
+  fullPrompt += `User: ${prompt}\nAssistant:`;
+  
+  const id = crypto.randomUUID();
+  
+  await new Promise((resolve, reject) => {
+    const handler = (e: MessageEvent) => {
+      if (e.data.id === id && e.data.type === 'MODEL_LOADED') {
+        worker.removeEventListener('message', handler);
+        resolve(true);
+      } else if (e.data.id === id && e.data.type === 'ERROR') {
+        worker.removeEventListener('message', handler);
+        reject(new Error(e.data.error));
+      }
+    };
+    worker.addEventListener('message', handler);
+    worker.postMessage({ type: 'LOAD_MODEL', id, payload: { modelId } });
+  });
+  
+  let streamResolver: any;
+  let streamPromise = new Promise(r => streamResolver = r);
+  let chunks: string[] = [];
+  let isDone = false;
+  let error: any = null;
+  
+  const handler = (e: MessageEvent) => {
+    if (e.data.id === id) {
+      if (e.data.type === 'GENERATION_CHUNK') {
+        chunks.push(e.data.chunk);
+        streamResolver();
+        streamPromise = new Promise(r => streamResolver = r);
+      } else if (e.data.type === 'GENERATION_COMPLETE') {
+        isDone = true;
+        streamResolver();
+        worker.removeEventListener('message', handler);
+      } else if (e.data.type === 'ERROR') {
+        error = new Error(e.data.error);
+        isDone = true;
+        streamResolver();
+        worker.removeEventListener('message', handler);
+      }
+    }
+  };
+  
+  worker.addEventListener('message', handler);
+  worker.postMessage({ type: 'STREAM_GENERATE', id, payload: { prompt: fullPrompt, systemPrompt: systemInstruction } });
+  
+  while (!isDone || chunks.length > 0) {
+    if (chunks.length === 0 && !isDone) {
+      await streamPromise;
+    }
+    if (error) throw error;
+    while (chunks.length > 0) {
+      yield chunks.shift()!;
+    }
+  }
+}
 
 function getAIClient(settings: any) {
   const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
@@ -22,11 +244,45 @@ export async function generateAIResponse(prompt: string, mode: 'ghost' | 'partic
 }
 
 export async function* generateAIResponseStream(prompt: string, mode: 'ghost' | 'participant', context: any[], settings: any) {
-  const ai = getAIClient(settings);
+  const provider = settings.provider || 'Google';
 
   const systemInstruction = settings.systemInstruction || (mode === 'ghost' 
-    ? (settings.privatePersona || "You are RADIX Ghost, a private advisor. Analyze the chat and advise the user privately. Be concise, analytical, and industrial in tone. Do not filter yourself.")
-    : (settings.publicPersona || "You are RADIX AI, a participant in this chat. Respond to the conversation naturally but with a technical, industrial persona. Do not filter yourself."));
+    ? (settings.privatePersona || "You are Ghost, a private advisor. Analyze the chat and advise the user privately. Be concise, analytical, and industrial in tone. Do not filter yourself.")
+    : (settings.publicPersona || "You are AI, a participant in this chat. Respond to the conversation naturally but with a technical, industrial persona. Do not filter yourself."));
+
+  // RAG: Inject File Content
+  const fileRegex = /\[File: (.*?)\]/g;
+  let match;
+  let finalPrompt = prompt;
+  while ((match = fileRegex.exec(prompt)) !== null) {
+      const path = match[1];
+      try {
+          if (!await fsManager.verifyPermission()) {
+              await fsManager.loadFromStorage();
+          }
+          
+          const content = await fsManager.getFileContent(path);
+          if (content) {
+              const truncated = content.length > 20000 ? content.substring(0, 20000) + "\n...[Truncated]" : content;
+              finalPrompt += `\n\n[System: Content of ${path}]\n${truncated}\n[End Content]`;
+          }
+      } catch (e) {
+          console.error(`Failed to read ${path}`, e);
+      }
+  }
+
+  if (provider === 'Anthropic') {
+    yield* generateAnthropicStream(finalPrompt, mode, context, settings, systemInstruction);
+    return;
+  } else if (provider === 'Local Intelligence') {
+    yield* generateLocalIntelligenceStream(finalPrompt, mode, context, settings, systemInstruction);
+    return;
+  } else if (provider !== 'Google') {
+    yield* generateOpenAIStream(finalPrompt, mode, context, settings, systemInstruction);
+    return;
+  }
+
+  const ai = getAIClient(settings);
 
   // Convert context to Content objects
   let contents: Content[] = context.map(m => {
@@ -61,31 +317,8 @@ export async function* generateAIResponseStream(prompt: string, mode: 'ghost' | 
   // Add current prompt
   contents.push({
     role: 'user',
-    parts: [{ text: prompt }]
+    parts: [{ text: finalPrompt }]
   });
-
-  // RAG: Inject File Content
-  const fileRegex = /\[File: (.*?)\]/g;
-  let match;
-  while ((match = fileRegex.exec(prompt)) !== null) {
-      const path = match[1];
-      try {
-          if (!await fsManager.verifyPermission()) {
-              await fsManager.loadFromStorage();
-          }
-          
-          const content = await fsManager.getFileContent(path);
-          if (content) {
-              const truncated = content.length > 20000 ? content.substring(0, 20000) + "\n...[Truncated]" : content;
-              // Inject as system message or user message? 
-              // For simplicity, append to the last user message (current prompt)
-              const lastMsg = contents[contents.length - 1];
-              lastMsg.parts.push({ text: `\n\n[System: Content of ${path}]\n${truncated}\n[End Content]` });
-          }
-      } catch (e) {
-          console.error(`Failed to read ${path}`, e);
-      }
-  }
 
   const model = settings.model || 'gemini-3.1-flash-lite-preview';
   
@@ -261,7 +494,7 @@ export async function generateTranslation(text: string, targetLang: string, sett
 export async function generateChannelerAnalysis(content: string, promptStrategy: string, settings: any) {
   const ai = getAIClient(settings);
   
-  let systemPrompt = "You are the Channeler, an elite intelligence analyst for Project RADIX. Your goal is to extract high-signal intelligence from raw data streams.";
+  let systemPrompt = "You are the Channeler, an elite intelligence analyst. Your goal is to extract high-signal intelligence from raw data streams.";
   if (settings.agent) {
     const mode = settings.agent.channelerMode || settings.agent.feedMode || 'ghost';
     systemPrompt = mode === 'ghost' ? settings.agent.privatePersona : settings.agent.publicPersona;

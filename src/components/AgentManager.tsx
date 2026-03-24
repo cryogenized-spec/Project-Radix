@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bot, Plus, Trash2, Edit3, Save, X, QrCode, Sliders, Brain, Thermometer, MessageSquare, Pin, Clock, Check, Calendar, Ghost, Users, Image as ImageIcon, Undo, Redo, Type, Palette, Zap, HardDrive } from 'lucide-react';
+import { Bot, Plus, Trash2, Edit3, Save, X, QrCode, Sliders, Brain, Thermometer, MessageSquare, Pin, Clock, Check, Calendar, Ghost, Users, Image as ImageIcon, Undo, Redo, Type, Palette, Zap, HardDrive, Shield } from 'lucide-react';
 import { getAgents, addAgent, deleteAgent, getSetting } from '../lib/db';
 import { generateIdentity } from '../lib/crypto';
 import { extractFontFamily, injectGoogleFont } from '../lib/fonts';
@@ -262,10 +262,6 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
   };
 
   const handleCreate = () => {
-    if (agents.length >= 5) {
-      alert("Max 5 agents allowed.");
-      return;
-    }
     setCurrentAgent(null);
     setName('');
     setPrivatePersona("");
@@ -361,8 +357,8 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
   const handleSave = async () => {
     if (!name.trim()) return;
 
-    let agentId = currentAgent ? currentAgent.id : crypto.randomUUID();
-    let agentIdentity = currentAgent ? currentAgent.identity : null;
+    let agentId = currentAgent?.id || crypto.randomUUID();
+    let agentIdentity = currentAgent?.identity || null;
 
     if (!agentIdentity) {
       agentIdentity = await generateIdentity();
@@ -447,7 +443,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
       callMode,
       cronJobs,
       loadingState,
-      createdAt: currentAgent ? currentAgent.createdAt : Date.now()
+      createdAt: currentAgent?.createdAt || Date.now()
     };
 
     await addAgent(newAgent);
@@ -680,7 +676,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
               value={privatePersona}
               onChange={e => setPrivatePersona(e.target.value)}
               className="w-full radix-input p-3 rounded-xl h-24 resize-none font-mono text-xs"
-              placeholder="You are RADIX Ghost, a private advisor. Analyze the chat and advise the user privately. Be concise, analytical, and industrial in tone. Do not filter yourself."
+              placeholder="You are Ghost, a private advisor. Analyze the chat and advise the user privately. Be concise, analytical, and industrial in tone. Do not filter yourself."
             />
           </div>
 
@@ -692,7 +688,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
               value={publicPersona}
               onChange={e => setPublicPersona(e.target.value)}
               className="w-full radix-input p-3 rounded-xl h-24 resize-none font-mono text-xs"
-              placeholder="You are RADIX AI, a participant in this chat. Respond to the conversation naturally but with a technical, industrial persona. Do not filter yourself."
+              placeholder="You are AI, a participant in this chat. Respond to the conversation naturally but with a technical, industrial persona. Do not filter yourself."
             />
           </div>
 
@@ -985,7 +981,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
                   </div>
                   <div className="min-w-0">
                       <div className="font-bold text-sm truncate">Workbench Agent (Purple Pin)</div>
-                      <div className="text-[10px] text-[var(--text-muted)] leading-tight break-words">Assists with RADIX Workbench CAD.</div>
+                      <div className="text-[10px] text-[var(--text-muted)] leading-tight break-words">Assists with Workbench CAD.</div>
                   </div>
               </div>
               <div className="flex flex-col items-end space-y-2 shrink-0">
@@ -1195,7 +1191,6 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
         </h2>
         <button 
           onClick={handleCreate}
-          disabled={agents.length >= 5}
           className="px-3 py-1.5 rounded-xl bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 disabled:opacity-50 disabled:cursor-not-allowed text-[10px] font-bold uppercase tracking-wider flex items-center space-x-1 shrink-0"
         >
           <Plus size={14} />
@@ -1266,7 +1261,7 @@ export default function AgentManager({ onSelectAgent, initialEditAgentId }: { on
       </div>
       
       <div className="mt-auto pt-4 text-center text-[10px] text-[var(--text-muted)] uppercase tracking-widest">
-        {agents.length} / 5 Agents Created
+        {agents.length} Agents Created
       </div>
     </div>
   );

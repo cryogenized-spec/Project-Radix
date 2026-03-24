@@ -900,7 +900,7 @@ function DiscoverySearchWindow({ channel, onBack }: { channel: Channel, onBack?:
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `RADIX_Discovery_${channel.name}_${Date.now()}.md`;
+    a.download = `Discovery_${channel.name}_${Date.now()}.md`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1293,7 +1293,7 @@ export function ChannelView({ channel, onBack }: { channel: Channel, onBack?: ()
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `RADIX_Analysis_${channel.name}_${Date.now()}.md`;
+    a.download = `Analysis_${channel.name}_${Date.now()}.md`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

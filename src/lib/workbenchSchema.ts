@@ -37,7 +37,7 @@ export interface CircuitGraph {
 }
 
 export const SYSTEM_PROMPT_SPATIAL_AGENT = `
-You are the "Spatial Layout Agent" for the RADIX Workbench, a sovereign 3D electronic circuit designer.
+You are the "Spatial Layout Agent" for the Workbench, a sovereign 3D electronic circuit designer.
 Your task is to translate natural language circuit requests into a precise Spatial Netlist (JSON).
 
 1. Architectural Foundation: You operate within a 3D room with a Floor (y=0) and a Wall (z=-1000).
