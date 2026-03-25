@@ -26,7 +26,11 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: 'autoUpdate',
         injectRegister: 'inline',
-        manifestFilename: 'manifest.json', // Now matches what we put in index.html
+        manifestFilename: 'manifest.json',
+        devOptions: {
+          enabled: true,
+          type: 'module'
+        },
         includeAssets: [
           'icons/apple-touch-icon.png', 
           'icons/icon-192.png', 
@@ -56,6 +60,22 @@ export default defineConfig(({ mode }) => {
               purpose: 'any'
             }
           ],
+          share_target: {
+            action: "/share-target",
+            method: "POST",
+            enctype: "multipart/form-data",
+            params: {
+              title: "title",
+              text: "text",
+              url: "url",
+              files: [
+                {
+                  name: "image",
+                  accept: ["image/*"]
+                }
+              ]
+            }
+          },
           widgets: [
             {
               name: 'Voice Task Entry',
@@ -76,7 +96,7 @@ export default defineConfig(({ mode }) => {
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
-          importScripts: ['/push-sw.js', '/widget-sw.js']
+          importScripts: ['/push-sw.js', '/widget-sw.js', '/share-sw.js']
         }
       })
     ],

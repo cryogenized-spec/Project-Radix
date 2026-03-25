@@ -2,6 +2,7 @@
   "short_name": "Radix",
   "name": "Project-Radix",
   "description": "Secure P2P Chat",
+  "id": "/?v=radix-1",
   "icons": [
     {
       "src": "icons/icon-192.png",
@@ -21,6 +22,22 @@
   "display": "standalone",
   "scope": "/",
   "theme_color": "#BB86FC",
+  "share_target": {
+    "action": "/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "image",
+          "accept": ["image/*"]
+        }
+      ]
+    }
+  },
   "widgets": [
     {
       "name": "Voice Task Entry",
