@@ -537,9 +537,15 @@ Provide tactical advice or draft a response. If drafting a response, provide ONL
     const sttProvider = settings.sttProvider || 'Local (Gemini Nano)';
     const sttKey = sttKeys[sttProvider] ? await decryptApiKey(sttKeys[sttProvider]) : '';
 
+    const provider = settings.provider || 'Google';
+    let apiKey = keys[provider] ? await decryptApiKey(keys[provider]) : '';
+    if (provider === 'Google' && !apiKey) {
+      apiKey = process.env.GEMINI_API_KEY || '';
+    }
+
     setAiSettings({ 
       ...settings, 
-      apiKey: keys['Google'] ? await decryptApiKey(keys['Google']) : '', // Default to Google for now as main chat AI
+      apiKey,
       sttApiKey: sttKey 
     });
     
@@ -1075,34 +1081,40 @@ Generate the next message from ${activeContext.contact.name}:`;
               aiMsg.text = streamedText.replace(/\[MOOD:\s*([^\]]+)\]/i, '').trim();
               await addMessage(aiMsg);
               
-          } catch (err) {
+          } catch (err: any) {
               console.error("Streaming Error", err);
-              aiMsg.text = "ERR: STREAM_FAILED";
+              aiMsg.text = `ERR: ${err.message || 'STREAM_FAILED'}`;
               setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: aiMsg.text } : m));
           }
       } else {
           // Non-Streaming Fallback
           abortControllerRef.current = false;
-          let aiResponseText = await generateAIResponse(newMsg.text, mode, [...messages, newMsg], currentAiSettings);
-          
-          if (abortControllerRef.current) {
-              setIsProcessing(false);
-              return;
+          try {
+            let aiResponseText = await generateAIResponse(newMsg.text, mode, [...messages, newMsg], currentAiSettings);
+            
+            if (abortControllerRef.current) {
+                setIsProcessing(false);
+                return;
+            }
+            
+            // Parse Mood Tag
+            const moodRegex = /\[MOOD:\s*([^\]]+)\]/i;
+            const moodMatch = aiResponseText.match(moodRegex);
+            
+            if (moodMatch) {
+                const detectedMood = moodMatch[1].trim();
+                setCurrentMood(detectedMood);
+                // Remove the tag from the text
+                aiResponseText = aiResponseText.replace(moodMatch[0], '').trim();
+            }
+            
+            aiMsg.text = aiResponseText;
+            await saveAndAddMessage(aiMsg);
+          } catch (err: any) {
+            console.error("AI Response Error", err);
+            aiMsg.text = `ERR: ${err.message || 'GENERATION_FAILED'}`;
+            await saveAndAddMessage(aiMsg);
           }
-          
-          // Parse Mood Tag
-          const moodRegex = /\[MOOD:\s*([^\]]+)\]/i;
-          const moodMatch = aiResponseText.match(moodRegex);
-          
-          if (moodMatch) {
-              const detectedMood = moodMatch[1].trim();
-              setCurrentMood(detectedMood);
-              // Remove the tag from the text
-              aiResponseText = aiResponseText.replace(moodMatch[0], '').trim();
-          }
-          
-          aiMsg.text = aiResponseText;
-          await saveAndAddMessage(aiMsg);
       }
       
       setIsProcessing(false);
@@ -1235,33 +1247,41 @@ Generate the next message from ${activeContext.contact.name}:`;
             updatedMsg.metadata.variants[newVariantIndex] = updatedMsg.text;
             await addMessage(updatedMsg);
             
-        } catch (err) {
+        } catch (err: any) {
             console.error("Streaming Error", err);
-            updatedMsg.text = "ERR: STREAM_FAILED";
+            updatedMsg.text = `ERR: ${err.message || 'STREAM_FAILED'}`;
             updatedMsg.metadata.variants[newVariantIndex] = updatedMsg.text;
             setMessages(prev => prev.map(m => m.id === msg.id ? { ...updatedMsg } : m));
             await addMessage(updatedMsg);
         }
     } else {
         abortControllerRef.current = false;
-        let aiResponseText = await generateAIResponse(userMsg.text, mode, [...contextToUse, userMsg], currentAiSettings);
-        if (abortControllerRef.current) {
-            setIsProcessing(false);
-            return;
+        try {
+            let aiResponseText = await generateAIResponse(userMsg.text, mode, [...contextToUse, userMsg], currentAiSettings);
+            if (abortControllerRef.current) {
+                setIsProcessing(false);
+                return;
+            }
+            
+            const moodRegex = /\[MOOD:\s*([^\]]+)\]/i;
+            const moodMatch = aiResponseText.match(moodRegex);
+            
+            if (moodMatch) {
+                setCurrentMood(moodMatch[1].trim());
+                aiResponseText = aiResponseText.replace(moodMatch[0], '').trim();
+            }
+            
+            updatedMsg.text = aiResponseText;
+            updatedMsg.metadata.variants[newVariantIndex] = aiResponseText;
+            setMessages(prev => prev.map(m => m.id === msg.id ? { ...updatedMsg } : m));
+            await addMessage(updatedMsg);
+        } catch (err: any) {
+            console.error("AI Response Error", err);
+            updatedMsg.text = `ERR: ${err.message || 'GENERATION_FAILED'}`;
+            updatedMsg.metadata.variants[newVariantIndex] = updatedMsg.text;
+            setMessages(prev => prev.map(m => m.id === msg.id ? { ...updatedMsg } : m));
+            await addMessage(updatedMsg);
         }
-        
-        const moodRegex = /\[MOOD:\s*([^\]]+)\]/i;
-        const moodMatch = aiResponseText.match(moodRegex);
-        
-        if (moodMatch) {
-            setCurrentMood(moodMatch[1].trim());
-            aiResponseText = aiResponseText.replace(moodMatch[0], '').trim();
-        }
-        
-        updatedMsg.text = aiResponseText;
-        updatedMsg.metadata.variants[newVariantIndex] = aiResponseText;
-        setMessages(prev => prev.map(m => m.id === msg.id ? { ...updatedMsg } : m));
-        await addMessage(updatedMsg);
     }
     
     setIsProcessing(false);
@@ -1398,9 +1418,9 @@ Generate the next message from ${activeContext.contact.name}:`;
         
         aiMsg.text = streamedText;
         await addMessage(aiMsg);
-    } catch (err) {
+    } catch (err: any) {
         console.error("Weather Action Error", err);
-        aiMsg.text = "ERR: WEATHER_FETCH_FAILED";
+        aiMsg.text = `ERR: ${err.message || 'WEATHER_FETCH_FAILED'}`;
         setMessages(prev => prev.map(m => m.id === aiMsgId ? { ...m, text: aiMsg.text } : m));
         await addMessage(aiMsg);
     }
@@ -1453,28 +1473,33 @@ Generate the next message from ${activeContext.contact.name}:`;
             if (instruction) currentAiSettings.systemInstruction = instruction;
         }
 
-        if (action === 'rewrite') {
-          responseText = await generateRewrite(m.text, extra || 'Professional', currentAiSettings);
-        } else if (action === 'factcheck') {
-          responseText = await generateFactCheck(m.text, currentAiSettings);
-        } else if (action === 'translate') {
-          const translation = await generateTranslation(m.text, extra || 'English', currentAiSettings);
-          responseText = `${m.text}\n\n---\n\n${translation}`;
-        } else if (action === 'transcribe') {
-          if (m.mediaUrl) {
-            const base64Audio = m.mediaUrl.split(',')[1];
-            responseText = await transcribeAudio(base64Audio, 'audio/webm', currentAiSettings);
-          } else {
-            responseText = "No audio data found to transcribe.";
+        try {
+          if (action === 'rewrite') {
+            responseText = await generateRewrite(m.text, extra || 'Professional', currentAiSettings);
+          } else if (action === 'factcheck') {
+            responseText = await generateFactCheck(m.text, currentAiSettings);
+          } else if (action === 'translate') {
+            const translation = await generateTranslation(m.text, extra || 'English', currentAiSettings);
+            responseText = `${m.text}\n\n---\n\n${translation}`;
+          } else if (action === 'transcribe') {
+            if (m.mediaUrl) {
+              const base64Audio = m.mediaUrl.split(',')[1];
+              responseText = await transcribeAudio(base64Audio, 'audio/webm', currentAiSettings);
+            } else {
+              responseText = "No audio data found to transcribe.";
+            }
+          } else if (action === 'visual_analysis') {
+            if (m.mediaUrl) {
+              const base64Image = m.mediaUrl.split(',')[1];
+              const mimeType = m.mediaUrl.split(';')[0].split(':')[1] || 'image/jpeg';
+              responseText = await generateVisualAnalysis(base64Image, mimeType, currentAiSettings);
+            } else {
+              responseText = "No image data found to analyze.";
+            }
           }
-        } else if (action === 'visual_analysis') {
-          if (m.mediaUrl) {
-            const base64Image = m.mediaUrl.split(',')[1];
-            const mimeType = m.mediaUrl.split(';')[0].split(':')[1] || 'image/jpeg';
-            responseText = await generateVisualAnalysis(base64Image, mimeType, currentAiSettings);
-          } else {
-            responseText = "No image data found to analyze.";
-          }
+        } catch (err: any) {
+          console.error("AI Action Error", err);
+          responseText = `ERR: ${err.message || 'ACTION_FAILED'}`;
         }
 
         if (abortControllerRef.current) {
@@ -3857,8 +3882,9 @@ Generate the next message from ${activeContext.contact.name}:`;
                           setShowInputMenu(false);
                           setInputMenuLevel('root');
                           setAiToneInput('');
-                        } catch (e) {
+                        } catch (e: any) {
                           console.error(e);
+                          alert(`AI Tone Application Failed: ${e.message || 'Unknown error'}`);
                         } finally {
                           setIsAiInputThinking(false);
                         }
@@ -3897,8 +3923,9 @@ Generate the next message from ${activeContext.contact.name}:`;
                           setShowInputMenu(false);
                           setInputMenuLevel('root');
                           setAiWriteInput('');
-                        } catch (e) {
+                        } catch (e: any) {
                           console.error(e);
+                          alert(`AI Generation Failed: ${e.message || 'Unknown error'}`);
                         } finally {
                           setIsAiInputThinking(false);
                         }

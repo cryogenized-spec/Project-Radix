@@ -871,18 +871,25 @@ function DiscoverySearchWindow({ channel, onBack }: { channel: Channel, onBack?:
     setAnalysisResult('');
     
     try {
+      const aiSettings = await getSetting('ai_settings') || {};
       const keys = await getSetting('api_keys') || {};
       const { decryptApiKey } = await import('../lib/apiKeyCrypto');
-      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
+      
+      const provider = aiSettings.provider || 'Google';
+      let apiKey = keys[provider] ? await decryptApiKey(keys[provider]) : '';
+      if (provider === 'Google' && !apiKey) {
+        apiKey = process.env.GEMINI_API_KEY || '';
+      }
+      
       const agents = await getAgents();
       const channelerAgent = agents.find(a => a.isChanneler);
       
       const contentToAnalyze = results.map(r => `Title: ${r.title}\nURL: ${r.url}\nSnippet: ${r.text || r.highlights?.[0] || ''}`).join('\n\n');
-      const stream = await generateChannelerAnalysis(contentToAnalyze, promptStrategy, { apiKey, agent: channelerAgent });
+      const stream = await generateChannelerAnalysis(contentToAnalyze, promptStrategy, { ...aiSettings, apiKey, agent: channelerAgent });
       
       for await (const chunk of stream) {
-        if (chunk.text) {
-            setAnalysisResult(prev => prev + chunk.text);
+        if (chunk) {
+            setAnalysisResult(prev => prev + chunk);
         }
       }
     } catch (error) {
@@ -1265,17 +1272,24 @@ export function ChannelView({ channel, onBack }: { channel: Channel, onBack?: ()
     setAnalysisResult('');
     
     try {
+      const aiSettings = await getSetting('ai_settings') || {};
       const keys = await getSetting('api_keys') || {};
       const { decryptApiKey } = await import('../lib/apiKeyCrypto');
-      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
+      
+      const provider = aiSettings.provider || 'Google';
+      let apiKey = keys[provider] ? await decryptApiKey(keys[provider]) : '';
+      if (provider === 'Google' && !apiKey) {
+        apiKey = process.env.GEMINI_API_KEY || '';
+      }
+      
       const agents = await getAgents();
       const channelerAgent = agents.find(a => a.isChanneler);
       
-      const stream = await generateChannelerAnalysis(feedContent, promptStrategy, { apiKey, agent: channelerAgent });
+      const stream = await generateChannelerAnalysis(feedContent, promptStrategy, { ...aiSettings, apiKey, agent: channelerAgent });
       
       for await (const chunk of stream) {
-        if (chunk.text) {
-            setAnalysisResult(prev => prev + chunk.text);
+        if (chunk) {
+            setAnalysisResult(prev => prev + chunk);
         }
       }
     } catch (error) {

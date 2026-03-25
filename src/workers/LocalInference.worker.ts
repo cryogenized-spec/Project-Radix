@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { CreateMLCEngine, MLCEngine } from "@mlc-ai/web-llm";
+import { MODEL_ID_MAP } from "../lib/ModelService";
 
 // This worker handles local LLM inference using WebGPU and OPFS.
 // We use @mlc-ai/web-llm which natively supports WebGPU and Cache API (persistent storage).
@@ -46,9 +47,10 @@ self.onmessage = async (e: MessageEvent) => {
 };
 
 async function loadModel(modelId: string) {
-  if (currentModelId === modelId && engine) return;
+  const mappedId = MODEL_ID_MAP[modelId] || modelId;
+  if (currentModelId === mappedId && engine) return;
   
-  console.log(`Loading model ${modelId} via WebLLM...`);
+  console.log(`Loading model ${mappedId} via WebLLM...`);
   
   // Fallback to WebAssembly if WebGPU is not available
   if (!navigator.gpu) {
@@ -59,9 +61,9 @@ async function loadModel(modelId: string) {
     self.postMessage({ type: 'MODEL_PROGRESS', id: 'load', progress: Math.round(progress.progress * 100), text: progress.text });
   };
 
-  engine = await CreateMLCEngine(modelId, { initProgressCallback });
+  engine = await CreateMLCEngine(mappedId, { initProgressCallback });
   
-  currentModelId = modelId;
+  currentModelId = mappedId;
 }
 
 async function generateText(prompt: string, systemPrompt?: string) {

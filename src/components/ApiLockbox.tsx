@@ -601,15 +601,6 @@ export default function ApiLockbox() {
             </div>
           )}
           
-          {provider === 'Local Intelligence' && (
-            <div className="md:col-span-2 pt-4 border-t border-[var(--border)]">
-              <ModelSelector 
-                selectedModelId={model} 
-                onSelectModel={(modelId) => setModel(modelId)} 
-              />
-            </div>
-          )}
-          
           {provider !== 'Local Intelligence' && (
             <>
               <div className={`space-y-1.5 sm:space-y-2 ${!PROVIDER_MODELS[provider] ? 'md:col-span-2' : ''}`}>
@@ -638,6 +629,15 @@ export default function ApiLockbox() {
           )}
         </div>
       </section>
+
+      {provider === 'Local Intelligence' && (
+        <section className="space-y-3 sm:space-y-4 radix-panel p-3 sm:p-4 rounded-xl">
+          <ModelSelector 
+            selectedModelId={model} 
+            onSelectModel={(modelId) => setModel(modelId)} 
+          />
+        </section>
+      )}
 
       <section className="space-y-3 sm:space-y-4 radix-panel p-3 sm:p-4 rounded-xl relative">
         <div className="flex justify-between items-center">

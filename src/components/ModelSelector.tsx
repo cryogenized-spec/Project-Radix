@@ -55,16 +55,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelectModel, sel
   };
 
   const handleDownload = async (model: LocalModel) => {
-    // Memory Guard
-    if (model.id.includes('Llama-3.1-8B') || model.id.includes('Mistral-Nemo')) {
-      const deviceMemory = (navigator as any).deviceMemory || 8;
-      if (deviceMemory < 12) {
-        if (!confirm(`Hardware Warning: Your device reports ${deviceMemory}GB RAM. The ${model.name} model requires at least 12GB RAM to run smoothly. Do you want to continue downloading?`)) {
-          return;
-        }
-      }
-    }
-
     setStatuses(prev => ({ ...prev, [model.id]: 'Downloading' }));
     setProgress(prev => ({ ...prev, [model.id]: 0 }));
     setProgressText(prev => ({ ...prev, [model.id]: 'Starting download...' }));
@@ -73,14 +63,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelectModel, sel
     setAbortControllers(prev => ({ ...prev, [model.id]: controller }));
 
     try {
-      await ModelService.downloadModel(model, (p, speed) => {
+      await ModelService.downloadModel(model, (p, text) => {
         setProgress(prev => ({ ...prev, [model.id]: p }));
-        if (speed > 0) {
-          const speedMB = (speed / 1024 / 1024).toFixed(1);
-          setProgressText(prev => ({ ...prev, [model.id]: `${speedMB} MB/s` }));
-        } else {
-          setProgressText(prev => ({ ...prev, [model.id]: 'Downloading...' }));
-        }
+        setProgressText(prev => ({ ...prev, [model.id]: text }));
       }, controller.signal);
     } catch (e: any) {
       console.error(e);
@@ -91,7 +76,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelectModel, sel
         return next;
       });
       if (e.name !== 'AbortError') {
-        alert(e.message || 'Download failed. Ensure your browser supports OPFS and you have enough storage.');
+        alert(e.message || 'Download failed. Ensure your browser supports WebGPU and you have enough storage.');
       }
     }
   };
@@ -132,7 +117,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onSelectModel, sel
       </div>
       
       <p className="text-xs text-[var(--text-muted)] mb-4">
-        Download small LLMs to run entirely offline in your browser using OPFS (Origin Private File System).
+        Download small LLMs to run entirely offline in your browser using WebLLM and Cache API.
       </p>
 
       <div className="grid gap-3">

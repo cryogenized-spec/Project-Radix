@@ -162,6 +162,11 @@ async function* generateLocalIntelligenceStream(prompt: string, mode: string, co
   const worker = ModelService.getWorker();
   const modelId = settings.model;
   
+  const isCached = await ModelService.checkModelStatus(modelId) === 'Offline Ready';
+  if (!isCached) {
+    throw new Error(`Model ${modelId} is not downloaded. Please download it in settings first.`);
+  }
+  
   let fullPrompt = "";
   for (const m of context) {
     fullPrompt += `${m.sender === 'me' ? 'User' : 'Assistant'}: ${m.text}\n`;
@@ -432,68 +437,39 @@ export async function* generateAIResponseStream(prompt: string, mode: 'ghost' | 
 }
 
 export async function generateRewrite(text: string, style: string, settings: any) {
-  const ai = getAIClient(settings);
-  
   const prompt = `Rewrite the following text to be ${style}. Return only the rewritten text.\n\nText: "${text}"`;
-  
   try {
-    const response = await ai.models.generateContent({
-      model: settings.model || 'gemini-3.1-flash-lite-preview',
-      contents: prompt,
-      config: {
-        temperature: 0.7
-      }
-    });
-    return response.text;
-  } catch (error) {
+    const response = await generateAIResponse(prompt, 'ghost', [], { ...settings, temperature: 0.7 });
+    return response;
+  } catch (error: any) {
     console.error("Rewrite Error:", error);
-    return "ERR: REWRITE_FAILED.";
+    return `ERR: ${error.message || 'REWRITE_FAILED'}`;
   }
 }
 
 export async function generateFactCheck(text: string, settings: any) {
-  const ai = getAIClient(settings);
-  
   const prompt = `Fact check the following text. Be concise and analytical. If true, state "VERIFIED". If false or misleading, explain why.\n\nText: "${text}"`;
-  
   try {
-    const response = await ai.models.generateContent({
-      model: settings.model || 'gemini-3.1-flash-lite-preview',
-      contents: prompt,
-      config: {
-        temperature: 0.2
-      }
-    });
-    return response.text;
-  } catch (error) {
+    const response = await generateAIResponse(prompt, 'ghost', [], { ...settings, temperature: 0.2 });
+    return response;
+  } catch (error: any) {
     console.error("Fact Check Error:", error);
-    return "ERR: FACT_CHECK_FAILED.";
+    return `ERR: ${error.message || 'FACT_CHECK_FAILED'}`;
   }
 }
 
 export async function generateTranslation(text: string, targetLang: string, settings: any) {
-  const ai = getAIClient(settings);
-  
   const prompt = `Translate the following text to ${targetLang}. Return only the translated text.\n\nText: "${text}"`;
-  
   try {
-    const response = await ai.models.generateContent({
-      model: settings.model || 'gemini-3.1-flash-lite-preview',
-      contents: prompt,
-      config: {
-        temperature: 0.3
-      }
-    });
-    return response.text;
-  } catch (error) {
+    const response = await generateAIResponse(prompt, 'ghost', [], { ...settings, temperature: 0.3 });
+    return response;
+  } catch (error: any) {
     console.error("Translation Error:", error);
-    return "ERR: TRANSLATION_FAILED.";
+    return `ERR: ${error.message || 'TRANSLATION_FAILED'}`;
   }
 }
 
-export async function generateChannelerAnalysis(content: string, promptStrategy: string, settings: any) {
-  const ai = getAIClient(settings);
-  
+export async function* generateChannelerAnalysis(content: string, promptStrategy: string, settings: any) {
   let systemPrompt = "You are the Channeler, an elite intelligence analyst. Your goal is to extract high-signal intelligence from raw data streams.";
   if (settings.agent) {
     const mode = settings.agent.channelerMode || settings.agent.feedMode || 'ghost';
@@ -522,16 +498,7 @@ export async function generateChannelerAnalysis(content: string, promptStrategy:
   }
 
   try {
-    const response = await ai.models.generateContentStream({
-      model: settings.model || 'gemini-3.1-flash-lite-preview',
-      contents: userPrompt,
-      config: {
-        systemInstruction: systemPrompt,
-        temperature: 0.3
-      }
-    });
-
-    return response;
+    yield* generateAIResponseStream(userPrompt, 'ghost', [], { ...settings, systemInstruction: systemPrompt, temperature: 0.3 });
   } catch (error) {
     console.error("Channeler Analysis Error:", error);
     throw error;
@@ -539,28 +506,18 @@ export async function generateChannelerAnalysis(content: string, promptStrategy:
 }
 
 export async function generateVisualAnalysis(base64Image: string, mimeType: string, settings: any) {
-  const ai = getAIClient(settings);
-  
+  const prompt = "Analyze this image in detail. Describe what you see, identify key elements, and provide any relevant insights. Be concise but thorough.";
+  const context = [{
+    sender: 'me',
+    mediaUrl: `data:${mimeType};base64,${base64Image}`,
+    mediaType: 'image'
+  }];
   try {
-    const response = await ai.models.generateContent({
-      model: settings.model || 'gemini-3.1-flash-lite-preview',
-      contents: [
-        {
-          inlineData: {
-            data: base64Image,
-            mimeType: mimeType
-          }
-        },
-        { text: "Analyze this image in detail. Describe what you see, identify key elements, and provide any relevant insights. Be concise but thorough." }
-      ],
-      config: {
-        temperature: 0.4
-      }
-    });
-    return response.text;
-  } catch (error) {
+    const response = await generateAIResponse(prompt, 'ghost', context, { ...settings, temperature: 0.4 });
+    return response;
+  } catch (error: any) {
     console.error("Visual Analysis Error:", error);
-    return "ERR: VISUAL_ANALYSIS_FAILED.";
+    return `ERR: ${error.message || 'VISUAL_ANALYSIS_FAILED'}`;
   }
 }
 
@@ -601,21 +558,18 @@ export async function transcribeAudio(base64Audio: string, mimeType: string, set
         return "NO_SPEECH";
     }
     return text;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Transcription Error:", error);
-    return "ERR: TRANSCRIPTION_FAILED.";
+    return `ERR: ${error.message || 'TRANSCRIPTION_FAILED'}`;
   }
 }
 
-export async function executePromptOnNote(noteContent: string, prompt: string, settings: any): Promise<{ markdown: string, suggestions: string[] }> {
+export async function executePromptOnNote(noteContent: string, prompt: string, settings: any): Promise<{ markdown: string, suggestions: string[], error?: string }> {
   const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
   if (!apiKey) return { markdown: noteContent, suggestions: [] };
   
-  const ai = getAIClient(settings);
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-lite-preview',
-      contents: `You are an expert Markdown editor. Your task is to modify the provided note content based on the user's prompt.
+    const fullPrompt = `You are an expert Markdown editor. Your task is to modify the provided note content based on the user's prompt.
 Return the updated note content in well-structured Markdown.
 DO NOT add conversational filler.
 
@@ -624,10 +578,11 @@ After the formatted markdown, add a separator "---SUGGESTIONS---" followed by 3 
 User Prompt: ${prompt}
 
 Note Content:
-${noteContent}`,
-    });
+${noteContent}`;
+
+    const response = await generateAIResponse(fullPrompt, 'ghost', [], { ...settings, temperature: 0.7 });
     
-    const fullText = response.text || noteContent;
+    const fullText = response || noteContent;
     const parts = fullText.split('---SUGGESTIONS---');
     const markdown = parts[0].trim();
     const suggestions = parts[1] 
@@ -635,9 +590,9 @@ ${noteContent}`,
       : [];
       
     return { markdown, suggestions };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Execute Prompt Error:", error);
-    return { markdown: noteContent, suggestions: [] };
+    return { markdown: noteContent, suggestions: [], error: error.message || 'EXECUTE_PROMPT_FAILED' };
   }
 }
 
@@ -645,22 +600,18 @@ export async function generateSubtasks(taskTitle: string, settings: any): Promis
   const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
   if (!apiKey) return [];
   
-  const ai = getAIClient(settings);
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-lite-preview',
-      contents: `You are an expert organizer and productivity coach. Break down the following task into 2 to 3 highly specific, actionable subtasks to jumpstart momentum. 
+    const fullPrompt = `You are an expert organizer and productivity coach. Break down the following task into 2 to 3 highly specific, actionable subtasks to jumpstart momentum. 
 Return ONLY a valid JSON array of strings representing the subtasks. Do not include markdown formatting like \`\`\`json.
 
-Task: "${taskTitle}"`,
-      config: {
-        temperature: 0.4,
-        responseMimeType: "application/json"
-      }
-    });
+Task: "${taskTitle}"`;
+
+    const response = await generateAIResponse(fullPrompt, 'ghost', [], { ...settings, temperature: 0.4 });
     
-    const text = response.text || "[]";
-    const parsed = JSON.parse(text);
+    const text = response || "[]";
+    // Clean up potential markdown formatting from other providers
+    const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed = JSON.parse(cleanedText);
     if (Array.isArray(parsed)) {
       return parsed.slice(0, 3).map(st => ({
         id: crypto.randomUUID(),
@@ -669,30 +620,28 @@ Task: "${taskTitle}"`,
       }));
     }
     return [];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Subtask Generation Error:", error);
     return [];
   }
 }
-export async function transformToMarkdown(text: string, settings: any): Promise<{ markdown: string, suggestions: string[] }> {
+export async function transformToMarkdown(text: string, settings: any): Promise<{ markdown: string, suggestions: string[], error?: string }> {
   const apiKey = settings.apiKey || process.env.GEMINI_API_KEY;
   if (!apiKey) return { markdown: text, suggestions: [] };
   
-  const ai = getAIClient(settings);
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-lite-preview',
-      contents: `You are an expert Markdown formatter. Your task is to ONLY format the provided text into well-structured Obsidian Markdown. 
+    const fullPrompt = `You are an expert Markdown formatter. Your task is to ONLY format the provided text into well-structured Obsidian Markdown. 
 DO NOT add new information, DO NOT remove existing information, and DO NOT add conversational filler.
 Just apply headings, lists, bolding, italics, and other markdown features to make it readable and structured.
 
 After the formatted markdown, add a separator "---SUGGESTIONS---" followed by 3 to 5 actionable prompts (one per line) that the user could use to improve or expand the note. These prompts should be clear instructions that an AI agent can easily follow (e.g., "Expand on the section about X", "Summarize the key points into a bulleted list", "Rewrite the introduction to be more engaging").
 
 Text:
-${text}`,
-    });
+${text}`;
+
+    const response = await generateAIResponse(fullPrompt, 'ghost', [], { ...settings, temperature: 0.7 });
     
-    const fullText = response.text || text;
+    const fullText = response || text;
     const parts = fullText.split('---SUGGESTIONS---');
     const markdown = parts[0].trim();
     const suggestions = parts[1] 
@@ -700,8 +649,8 @@ ${text}`,
       : [];
       
     return { markdown, suggestions };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Markdown Transformation Error:", error);
-    return { markdown: text, suggestions: [] };
+    return { markdown: text, suggestions: [], error: error.message || 'TRANSFORM_FAILED' };
   }
 }

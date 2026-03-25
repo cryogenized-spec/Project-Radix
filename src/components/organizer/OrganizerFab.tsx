@@ -334,8 +334,8 @@ export default function OrganizerFab({ onNotification, onNavigate }: OrganizerFa
             updatedAt: Date.now()
         });
 
-    } catch (e) {
-        setThread(prev => [...prev, { role: 'model', content: "Sorry, I encountered an error processing your request.", timestamp: Date.now() }]);
+    } catch (e: any) {
+        setThread(prev => [...prev, { role: 'model', content: `Sorry, I encountered an error processing your request: ${e.message || 'Unknown error'}`, timestamp: Date.now() }]);
     } finally {
         setIsProcessing(false);
     }

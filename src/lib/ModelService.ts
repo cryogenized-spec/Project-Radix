@@ -103,6 +103,21 @@ export const LOCAL_MODELS: LocalModel[] = [
   }
 ];
 
+export const MODEL_ID_MAP: Record<string, string> = {
+  'gemma-3n-e2b-it': 'gemma-2-2b-it-q4f16_1-MLC',
+  'gemma-3n-e4b-it': 'gemma-2-2b-it-q4f16_1-MLC',
+  'llama-3.2-1b-instruct': 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+  'qwen2.5-0.5b-instruct': 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
+  'qwen2.5-1.5b-instruct': 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+  'deepseek-r1-distill-qwen-1.5b': 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC',
+  'Qwen2.5-Coder-3B-Instruct-q4f16_1-MLC': 'Qwen2.5-Coder-3B-Instruct-q4f16_1-MLC',
+  'Phi-4-mini-instruct-q4f16_1-MLC': 'Phi-3.5-mini-instruct-q4f16_1-MLC',
+  'qwen-3.5-1.7b': 'Qwen3-1.7B-q4f16_1-MLC',
+  'phi-4-mini-abliterated': 'Phi-3.5-mini-instruct-q4f16_1-MLC',
+  'llama-3.1-8b-instruct': 'Llama-3.1-8B-Instruct-q4f16_1-MLC',
+  'mistral-nemo-12b': 'Mistral-7B-Instruct-v0.3-q4f16_1-MLC'
+};
+
 export type ModelStatus = 'Available' | 'Downloading' | 'Offline Ready';
 
 export class ModelService {
@@ -115,20 +130,16 @@ export class ModelService {
     return this.worker;
   }
 
-  private static async getOPFSDirectory() {
-    return await navigator.storage.getDirectory();
-  }
-
   static async checkModelStatus(modelId: string): Promise<ModelStatus> {
+    const mappedId = MODEL_ID_MAP[modelId] || modelId;
     try {
-      const dir = await this.getOPFSDirectory();
-      const fileHandle = await dir.getFileHandle(`${modelId}.gguf`, { create: false });
-      const file = await fileHandle.getFile();
-      if (file.size > 0) {
+      const { hasModelInCache } = await import('@mlc-ai/web-llm');
+      const isCached = await hasModelInCache(mappedId);
+      if (isCached) {
         return 'Offline Ready';
       }
     } catch (e) {
-      // File doesn't exist
+      console.error('Error checking model status:', e);
     }
     return 'Available';
   }
@@ -138,82 +149,33 @@ export class ModelService {
     onProgress: (progress: number, speedBytesPerSec: number) => void,
     signal?: AbortSignal
   ): Promise<void> {
+    const mappedId = MODEL_ID_MAP[model.id] || model.id;
     try {
-      const encryptedKey = await getSetting('hfApiKey');
-      const apiKey = await decryptApiKey(encryptedKey || '');
+      const { CreateMLCEngine } = await import('@mlc-ai/web-llm');
       
-      const headers: Record<string, string> = {};
-      if (apiKey) {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-      } else if (model.isGated) {
-        throw new Error('Hugging Face API key is required to download this model. Please set it in the API Lockbox.');
-      }
-
-      const response = await fetch(model.url, { headers, signal });
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Unauthorized. If this is a gated model, ensure you have accepted the EULA on Hugging Face and provided a valid API key in the API Lockbox.');
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const contentLength = response.headers.get('content-length');
-      const total = contentLength ? parseInt(contentLength, 10) : model.sizeBytes;
-      let loaded = 0;
       let lastTime = performance.now();
       let lastLoaded = 0;
-
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('Failed to get reader from response');
-
-      const dir = await this.getOPFSDirectory();
-      const fileHandle = await dir.getFileHandle(`${model.id}.gguf`, { create: true });
       
-      let writable;
-      try {
-        writable = await (fileHandle as any).createWritable();
-      } catch (e) {
-        console.warn("createWritable not supported, buffering in memory (may crash on large models)");
-        const chunks: Uint8Array[] = [];
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value) {
-            chunks.push(value);
-            loaded += value.length;
-            const now = performance.now();
-            if (now - lastTime > 500) {
-              const speed = ((loaded - lastLoaded) / (now - lastTime)) * 1000;
-              onProgress(Math.round((loaded / total) * 100), speed);
-              lastTime = now;
-              lastLoaded = loaded;
-            }
+      const engine = await CreateMLCEngine(mappedId, {
+        initProgressCallback: (progress) => {
+          if (signal?.aborted) {
+            throw new Error('Download aborted');
           }
-        }
-        const blob = new Blob(chunks);
-        throw new Error("OPFS createWritable not supported in this browser.");
-      }
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) {
-          await writable.write(value);
-          loaded += value.length;
           const now = performance.now();
           if (now - lastTime > 500) {
+            // progress.progress is 0 to 1
+            const loaded = progress.progress * model.sizeBytes;
             const speed = ((loaded - lastLoaded) / (now - lastTime)) * 1000;
-            onProgress(Math.round((loaded / total) * 100), speed);
+            onProgress(Math.round(progress.progress * 100), speed);
             lastTime = now;
             lastLoaded = loaded;
           }
         }
-      }
+      });
       
-      await writable.close();
+      await engine.unload();
       onProgress(100, 0);
       
-      // Dispatch event to notify the app
       window.dispatchEvent(new CustomEvent('local-model-downloaded', { detail: { modelId: model.id } }));
     } catch (error) {
       console.error('Download failed:', error);
@@ -222,9 +184,10 @@ export class ModelService {
   }
 
   static async deleteModel(modelId: string): Promise<void> {
+    const mappedId = MODEL_ID_MAP[modelId] || modelId;
     try {
-      const dir = await this.getOPFSDirectory();
-      await dir.removeEntry(`${modelId}.gguf`);
+      const { deleteModelAllInfoInCache } = await import('@mlc-ai/web-llm');
+      await deleteModelAllInfoInCache(mappedId);
       window.dispatchEvent(new CustomEvent('local-model-deleted', { detail: { modelId } }));
     } catch (e) {
       console.error('Failed to delete model:', e);

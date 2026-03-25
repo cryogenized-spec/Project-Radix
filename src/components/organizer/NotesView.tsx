@@ -295,10 +295,17 @@ export default function NotesView() {
     if (!editContent) return;
     setIsTransforming(true);
     try {
+      const aiSettings = await getSetting('ai_settings') || {};
       const keys = await getSetting('api_keys') || {};
       const { decryptApiKey } = await import('../../lib/apiKeyCrypto');
-      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
-      const { markdown, suggestions } = await transformToMarkdown(editContent, { apiKey });
+      
+      const provider = aiSettings.provider || 'Google';
+      let apiKey = keys[provider] ? await decryptApiKey(keys[provider]) : '';
+      if (provider === 'Google' && !apiKey) {
+        apiKey = process.env.GEMINI_API_KEY || '';
+      }
+      
+      const { markdown, suggestions } = await transformToMarkdown(editContent, { ...aiSettings, apiKey });
       setEditContent(markdown);
       setSuggestions(suggestions);
     } catch (error) {
@@ -313,10 +320,17 @@ export default function NotesView() {
     setIsTransforming(true);
     setSuggestions([]);
     try {
+      const aiSettings = await getSetting('ai_settings') || {};
       const keys = await getSetting('api_keys') || {};
       const { decryptApiKey } = await import('../../lib/apiKeyCrypto');
-      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
-      const { markdown, suggestions: newSuggestions } = await executePromptOnNote(editContent, prompt, { apiKey });
+      
+      const provider = aiSettings.provider || 'Google';
+      let apiKey = keys[provider] ? await decryptApiKey(keys[provider]) : '';
+      if (provider === 'Google' && !apiKey) {
+        apiKey = process.env.GEMINI_API_KEY || '';
+      }
+      
+      const { markdown, suggestions: newSuggestions } = await executePromptOnNote(editContent, prompt, { ...aiSettings, apiKey });
       setEditContent(markdown);
       setSuggestions(newSuggestions);
     } catch (error) {
@@ -379,9 +393,16 @@ export default function NotesView() {
     setShowContextMenu(false);
     setIsTransforming(true);
     try {
+      const aiSettings = await getSetting('ai_settings') || {};
       const keys = await getSetting('api_keys') || {};
       const { decryptApiKey } = await import('../../lib/apiKeyCrypto');
-      const apiKey = keys['Google'] ? await decryptApiKey(keys['Google']) : process.env.GEMINI_API_KEY;
+      
+      const provider = aiSettings.provider || 'Google';
+      let apiKey = keys[provider] ? await decryptApiKey(keys[provider]) : '';
+      if (provider === 'Google' && !apiKey) {
+        apiKey = process.env.GEMINI_API_KEY || '';
+      }
+      
       const aiPrompt = selection.text 
         ? `You are an expert editor. Modify or generate text based on the following instruction and the selected text. Return ONLY the new text, no conversational filler.\n\nInstruction: ${prompt}\n\nSelected Text:\n${selection.text}`
         : `You are an expert editor. Generate text based on the following instruction. Return ONLY the new text, no conversational filler.\n\nInstruction: ${prompt}`;
@@ -390,7 +411,7 @@ export default function NotesView() {
         aiPrompt,
         'participant',
         [],
-        { apiKey }
+        { ...aiSettings, apiKey }
       );
       
       setEphemeralText({
@@ -398,8 +419,9 @@ export default function NotesView() {
         start: selection.start,
         end: selection.end
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Action Error:", error);
+      alert(`AI Action Failed: ${error.message || 'Unknown error'}`);
     } finally {
       setIsTransforming(false);
     }
