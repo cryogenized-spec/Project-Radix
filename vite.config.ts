@@ -72,7 +72,7 @@ export default defineConfig(({ mode }) => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,avif,wasm}'],
           navigateFallback: '/index.html',
-          maximumFileSizeToCacheInBytes: 15000000,
+          maximumFileSizeToCacheInBytes: 50000000,
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
@@ -92,7 +92,7 @@ export default defineConfig(({ mode }) => {
       format: 'es'
     },
     build: {
-      chunkSizeWarningLimit: 5000,
+      chunkSizeWarningLimit: 30000,
     },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
